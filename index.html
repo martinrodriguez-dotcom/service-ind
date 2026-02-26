@@ -5,19 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ServicePro Industrial EAM</title>
     
-    <!-- 1. Estilos -->
+    <!-- 1. Estilos (Tailwind) -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- 2. React y ReactDOM Core -->
+    <!-- 2. React y ReactDOM Core (Cargar primero) -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
-    <!-- 3. Babel Standalone para transpilar JSX -->
+    <!-- 3. Babel Standalone (Para leer JSX) -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- 4. Lucide e iconos para React -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://unpkg.com/lucide-react@latest"></script>
+    <!-- 4. Lucide React (Componentes para React) -->
+    <script src="https://unpkg.com/lucide-react"></script>
     
     <!-- 5. Librerías de PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -34,9 +33,9 @@
     <div id="root"></div>
 
     <!-- 
-      IMPORTANTE: Eliminamos data-type="module" y usamos type="text/babel".
-      Babel leerá el archivo src/App.jsx y lo ejecutará sin problemas de imports.
+      SOLUCIÓN: Babel leerá el archivo App.jsx. 
+      Asegúrate de que App.jsx esté en la carpeta src/ en tu repositorio.
     -->
-    <script type="text/babel" data-presets="react" src="./src/App.jsx"></script>
+    <script type="text/babel" src="src/App.jsx"></script>
 </body>
 </html>
