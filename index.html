@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Gestion de Equipos BND | Gestión Profesional de Activos</title>
+    <title>ServicePro EAM | Gestión Inteligente</title>
     
     <!-- LIBRERÍAS CORE -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -11,9 +11,11 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- LIBRERÍAS PARA GENERACIÓN DE PDF -->
+    <!-- PDF, QR Y ESCÁNER -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
@@ -24,8 +26,6 @@
             --accent: #f59e0b;
             --bg-light: #f8fafc;
             --bg-dark: #0f172a;
-            --emerald: #10b981;
-            --rose: #f43f5e;
         }
 
         body { 
@@ -90,19 +90,14 @@
             box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
         }
 
-        .dark .input-modern:focus { background: #0f172a; }
-
         ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 
-        .animate-fade-in {
-            animation: fadeIn 0.4s ease-out forwards;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        #reader { width: 100% !important; border: none !important; border-radius: 1.5rem; overflow: hidden; }
+        #reader video { border-radius: 1.5rem; }
 
         .history-table th {
             text-align: left;
@@ -124,13 +119,13 @@
 <body class="transition-colors duration-300">
     <div id="root"></div>
 
-    <!-- CONFIGURACIÓN FIREBASE -->
+    <!-- FIREBASE SETUP -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, onSnapshot, addDoc, updateDoc, doc, arrayUnion, query } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         
         const firebaseConfig = {
-            apiKey: "", // Proporcionada por el entorno
+            apiKey: "",
             authDomain: "service-ind.firebaseapp.com",
             projectId: "service-ind",
             storageBucket: "service-ind.firebasestorage.app",
@@ -145,15 +140,17 @@
             window.fb = { collection, onSnapshot, addDoc, updateDoc, doc, arrayUnion, query };
             window.dispatchEvent(new Event('firebase-ready'));
         } catch (error) {
-            console.error("Error al inicializar Firebase:", error);
+            console.error("Firebase init failed:", error);
         }
     </script>
 
-    <!-- LÓGICA DE LA APLICACIÓN -->
+    <!-- REACT APPLICATION -->
     <script type="text/babel">
-        const { useState, useEffect, useMemo, useCallback } = React;
+        const { useState, useEffect, useMemo, useCallback, useRef } = React;
 
-        // --- SISTEMA DE ICONOS SVG NATIVOS ---
+        const SERVICE_INTERVAL_DEFAULT = 250;
+
+        // --- SISTEMA DE ICONOS SVG ---
         const Icon = ({ name, size = 20, className = "" }) => {
             const icons = {
                 dashboard: <path d="M3 3h7v7H3V3zm11 0h7v7h-7V3zm0 11h7v7h-7v-7zM3 11h7v10H3V11z" strokeWidth="2"/>,
@@ -169,85 +166,27 @@
                 check: <path d="M20 6L9 17l-5-5" strokeWidth="2.5"/>,
                 settings: <React.Fragment><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" strokeWidth="2"/></React.Fragment>,
                 user: <React.Fragment><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></React.Fragment>,
-                hash: <path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18" strokeWidth="2"/>,
                 fuel: <React.Fragment><path d="M3 22V8c0-2.1 1.7-3.8 3.8-3.8h7.5c2.1 0 3.8 1.7 3.8 3.8v14M4 9h13"/><path d="M19 8h1a2 2 0 012 2v6a2 2 0 01-2 2h-1M19 18h2"/><circle cx="10" cy="13" r="3"/></React.Fragment>,
+                calendar: <React.Fragment><rect x="3" y="4" width="18" height="18" rx="2" ry="2" strokeWidth="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></React.Fragment>,
+                qr: <React.Fragment><rect x="3" y="3" width="7" height="7" strokeWidth="2"/><rect x="14" y="3" width="7" height="7" strokeWidth="2"/><rect x="3" y="14" width="7" height="7" strokeWidth="2"/><path d="M14 14h3v3h-3v-3zm3 3h3v3h-3v-3zm-3 3h3v-3" strokeWidth="2"/></React.Fragment>,
                 history: <React.Fragment><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/><path d="M3.05 11a9 9 0 11.5 4m-.5 5v-5h5"/></React.Fragment>,
-                chevronDown: <polyline points="6 9 12 15 18 9"/>
+                chevronDown: <polyline points="6 9 12 15 18 9"/>,
+                hash: <path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18" strokeWidth="2"/>
             };
-
             return (
-                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>
-                    {icons[name] || null}
-                </svg>
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className={className}>{icons[name] || null}</svg>
             );
-        };
-
-        const SERVICE_INTERVAL_DEFAULT = 250;
-
-        // --- FUNCIÓN DE GENERACIÓN DE PDF PROFESIONAL ---
-        const downloadVehiclePDF = (company, vehicle) => {
-            if (!window.jspdf) return;
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            const interval = vehicle.serviceInterval || SERVICE_INTERVAL_DEFAULT;
-            const hsConsumidas = (vehicle.horometroTotal || 0) - (vehicle.ultimoServiceHoras || 0);
-            const progress = Math.max(0, 100 - (hsConsumidas / interval * 100));
-
-            // Estética de cabecera
-            doc.setFillColor(79, 70, 229);
-            doc.rect(0, 0, 210, 40, 'F');
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(22);
-            doc.text("EXPEDIENTE TÉCNICO DE MANTENIMIENTO", 15, 20);
-            doc.setFontSize(10);
-            doc.text(`ServicePro EAM - Reporte generado el: ${new Date().toLocaleDateString()}`, 15, 30);
-
-            doc.setTextColor(30, 41, 59);
-            doc.setFontSize(14);
-            doc.text("Información del Activo Industrial", 15, 55);
-            doc.setFontSize(10);
-            doc.text(`Empresa: ${company.nombre}`, 15, 65);
-            doc.text(`Identificación: ${vehicle.nombre} (${vehicle.marca || '-'} ${vehicle.modelo || '-'})`, 15, 71);
-            doc.text(`Número de Serie: ${vehicle.serie || 'S/N'}`, 110, 65);
-            doc.text(`Horómetro Actual: ${vehicle.horometroTotal} HS`, 110, 71);
-
-            doc.setFontSize(12);
-            doc.text(`Vida útil de ciclo restante: ${progress.toFixed(1)}%`, 15, 85);
-
-            // Preparación de tabla
-            const tableData = (vehicle.eventos || []).slice().reverse().map(ev => [
-                ev.fecha, 
-                ev.tipo, 
-                `${ev.horas || '-'} HS`, 
-                ev.litros ? `${ev.litros} Lts` : '-',
-                ev.nota || ev.motivo || (ev.insumos ? ev.insumos.join(', ') : '-')
-            ]);
-
-            doc.autoTable({
-                startY: 95,
-                head: [['Fecha', 'Evento', 'Horómetro', 'Carga', 'Detalle Técnico / Insumos']],
-                body: tableData,
-                headStyles: { fillColor: [79, 70, 229] },
-                styles: { fontSize: 8, cellPadding: 3 },
-                columnStyles: { 4: { cellWidth: 80 } }
-            });
-
-            doc.save(`Reporte_${vehicle.nombre.replace(/\s+/g, '_')}.pdf`);
         };
 
         const Modal = ({ title, onClose, children }) => (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
                 <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={onClose} />
-                <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl overflow-hidden">
                     <div className="px-8 py-6 border-b dark:border-slate-800 flex justify-between items-center bg-white/50 dark:bg-slate-900/50">
                         <h3 className="text-xl font-extrabold text-slate-800 dark:text-white tracking-tight uppercase italic leading-none">{title}</h3>
-                        <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all text-slate-400">
-                            <Icon name="x" size={24} />
-                        </button>
+                        <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all text-slate-400"><Icon name="x" size={24} /></button>
                     </div>
-                    <div className="p-8 max-h-[85vh] overflow-y-auto">
-                        {children}
-                    </div>
+                    <div className="p-8 max-h-[85vh] overflow-y-auto">{children}</div>
                 </div>
             </div>
         );
@@ -263,6 +202,9 @@
             
             const [modalType, setModalType] = useState(null);
             const [activeVehicleId, setActiveVehicleId] = useState(null);
+            const [scannerActive, setScannerActive] = useState(false);
+
+            const scannerRef = useRef(null);
             
             const [form, setForm] = useState({ 
                 nombre: '', cuit: '', responsable: '', mail: '', tel: '',
@@ -271,7 +213,7 @@
                 insumos: [], insumoManual: ''
             });
 
-            // Sincronización en tiempo real con Firebase
+            // Sincronización Firebase
             const startSync = useCallback(() => {
                 if (!window.fb || !window.db) return;
                 const q = window.fb.query(window.fb.collection(window.db, "companies"));
@@ -279,10 +221,7 @@
                     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     setCompanies(data);
                     setLoading(false);
-                }, (err) => { 
-                    console.error("Firebase Error:", err); 
-                    setLoading(false); 
-                });
+                }, (err) => { console.error(err); setLoading(false); });
             }, []);
 
             useEffect(() => {
@@ -291,24 +230,122 @@
                 return () => window.removeEventListener('firebase-ready', startSync);
             }, [startSync]);
 
-            // Derivamos la empresa activa del estado global para actualización instantánea
-            const activeCompany = useMemo(() => 
-                companies.find(c => c.id === selectedCompanyId), 
-            [companies, selectedCompanyId]);
+            const activeCompany = useMemo(() => companies.find(c => c.id === selectedCompanyId), [companies, selectedCompanyId]);
 
-            const alerts = useMemo(() => {
+            // --- LÓGICA DE PROYECCIÓN DE CALENDARIO ---
+            const projections = useMemo(() => {
                 let list = [];
                 companies.forEach(emp => {
                     (emp.vehiculos || []).forEach(veh => {
-                        const interval = veh.serviceInterval || SERVICE_INTERVAL_DEFAULT;
-                        const rest = interval - ((veh.horometroTotal || 0) - (veh.ultimoServiceHoras || 0));
-                        if (rest < 50 || !veh.operativo) {
-                            list.push({ ...veh, companyId: emp.id, companyName: emp.nombre, rest });
+                        const regs = (veh.eventos || [])
+                            .filter(e => e.tipo === 'REGISTRO')
+                            .sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+                        
+                        let avgUsage = 0;
+                        if (regs.length >= 2) {
+                            const first = regs[0];
+                            const last = regs[regs.length - 1];
+                            const diffHs = last.horas - first.horas;
+                            const diffDays = Math.max(1, (new Date(last.fecha) - new Date(first.fecha)) / (1000*60*60*24));
+                            avgUsage = diffHs / diffDays;
                         }
+
+                        const interval = veh.serviceInterval || SERVICE_INTERVAL_DEFAULT;
+                        const restHs = interval - (veh.horometroTotal - veh.ultimoServiceHoras);
+                        
+                        let estDate = null;
+                        if (avgUsage > 0 && restHs > 0) {
+                            estDate = new Date();
+                            estDate.setDate(estDate.getDate() + Math.ceil(restHs / avgUsage));
+                        }
+
+                        list.push({ 
+                            ...veh, 
+                            empresaNombre: emp.nombre, 
+                            companyId: emp.id, 
+                            estDate, 
+                            avgUsage, 
+                            restHs 
+                        });
                     });
                 });
-                return list.sort((a,b) => a.rest - b.rest);
+                return list.sort((a,b) => (a.estDate || Infinity) - (b.estDate || Infinity));
             }, [companies]);
+
+            // --- ESCÁNER QR ---
+            const startScanner = () => {
+                setScannerActive(true);
+                setTimeout(() => {
+                    scannerRef.current = new Html5Qrcode("reader");
+                    scannerRef.current.start(
+                        { facingMode: "environment" },
+                        { fps: 10, qrbox: { width: 250, height: 250 } },
+                        (decodedText) => {
+                            if (decodedText.startsWith("sp-asset:")) {
+                                const [_, cId, vId] = decodedText.split(":");
+                                setSelectedCompanyId(cId);
+                                setActiveTab('companies');
+                                setScannerActive(false);
+                                scannerRef.current.stop();
+                            }
+                        },
+                        () => {}
+                    ).catch(err => console.error(err));
+                }, 500);
+            };
+
+            const generateQR = (vId) => {
+                const modalDiv = document.getElementById(`qr-container-${vId}`);
+                modalDiv.innerHTML = "";
+                new QRCode(modalDiv, {
+                    text: `sp-asset:${selectedCompanyId}:${vId}`,
+                    width: 200,
+                    height: 200,
+                    colorDark : "#4f46e5",
+                    colorLight : "#ffffff"
+                });
+            };
+
+            const downloadVehiclePDF = (company, vehicle) => {
+                if (!window.jspdf) return;
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                const interval = vehicle.serviceInterval || SERVICE_INTERVAL_DEFAULT;
+                const hsConsumidas = (vehicle.horometroTotal || 0) - (vehicle.ultimoServiceHoras || 0);
+                const progress = Math.max(0, 100 - (hsConsumidas / interval * 100));
+
+                doc.setFillColor(79, 70, 229);
+                doc.rect(0, 0, 210, 40, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(22);
+                doc.text("EXPEDIENTE TÉCNICO DE MANTENIMIENTO", 15, 20);
+                doc.setFontSize(10);
+                doc.text(`ServicePro EAM - Generado: ${new Date().toLocaleDateString()}`, 15, 30);
+
+                doc.setTextColor(30, 41, 59);
+                doc.setFontSize(14);
+                doc.text("Resumen del Activo", 15, 55);
+                doc.setFontSize(10);
+                doc.text(`Empresa: ${company.nombre}`, 15, 65);
+                doc.text(`Equipo: ${vehicle.nombre} (${vehicle.marca || '-'} ${vehicle.modelo || '-'})`, 15, 71);
+                doc.text(`Horómetro Actual: ${vehicle.horometroTotal} HS`, 110, 71);
+
+                const tableData = (vehicle.eventos || []).slice().reverse().map(ev => [
+                    ev.fecha, ev.tipo, `${ev.horas || '-'} HS`, 
+                    ev.litros ? `${ev.litros} Lts` : '-',
+                    ev.nota || ev.motivo || (ev.insumos ? ev.insumos.join(', ') : '-')
+                ]);
+
+                doc.autoTable({
+                    startY: 85,
+                    head: [['Fecha', 'Evento', 'Lectura', 'Consumo', 'Detalle Técnico']],
+                    body: tableData,
+                    headStyles: { fillColor: [79, 70, 229] },
+                    styles: { fontSize: 8 }
+                });
+
+                doc.save(`Reporte_${vehicle.nombre.replace(/\s+/g, '_')}.pdf`);
+            };
 
             const toggleHistory = (id) => {
                 const newSet = new Set(expandedVehicles);
@@ -319,31 +356,19 @@
 
             // Handlers Firebase
             const handleAddCompany = async () => {
-                if(!form.nombre) return;
-                await window.fb.addDoc(window.fb.collection(window.db, "companies"), { 
-                    nombre: form.nombre, cuit: form.cuit, responsable: form.responsable, vehiculos: [] 
-                });
-                setModalType(null); setForm({ serviceInterval: 250, insumos: [] });
+                await window.fb.addDoc(window.fb.collection(window.db, "companies"), { ...form, vehiculos: [] });
+                setModalType(null); setForm({ serviceInterval: 250 });
             };
 
             const handleAddVehicle = async () => {
-                if(!form.nombre || !activeCompany) return;
                 const ref = window.fb.doc(window.db, "companies", activeCompany.id);
                 const h = parseFloat(form.horometro) || 0;
                 const v = { 
-                    id: Date.now(), 
-                    nombre: form.nombre.toUpperCase(),
-                    marca: form.marca,
-                    modelo: form.modelo,
-                    serie: form.serie,
-                    serviceInterval: parseInt(form.serviceInterval) || 250,
-                    horometroTotal: h, 
-                    ultimoServiceHoras: h, 
-                    operativo: true, 
-                    eventos: [{ tipo: 'ALTA', fecha: new Date().toLocaleDateString(), horas: h, nota: 'Vinculación a flota' }] 
+                    id: Date.now().toString(), ...form, horometroTotal: h, ultimoServiceHoras: h, 
+                    operativo: true, eventos: [{ tipo: 'ALTA', fecha: new Date().toLocaleDateString(), horas: h, nota: 'Vinculación' }] 
                 };
                 await window.fb.updateDoc(ref, { vehiculos: window.fb.arrayUnion(v) });
-                setModalType(null); setForm({ serviceInterval: 250, insumos: [] });
+                setModalType(null); setForm({ serviceInterval: 250 });
             };
 
             const handleDailyLog = async () => {
@@ -377,6 +402,20 @@
                 setModalType(null); setForm({ serviceInterval: 250, insumos: [] });
             };
 
+            const alerts = useMemo(() => {
+                let list = [];
+                companies.forEach(emp => {
+                    (emp.vehiculos || []).forEach(veh => {
+                        const interval = veh.serviceInterval || SERVICE_INTERVAL_DEFAULT;
+                        const rest = interval - ((veh.horometroTotal || 0) - (veh.ultimoServiceHoras || 0));
+                        if (rest < 50 || !veh.operativo) {
+                            list.push({ ...veh, companyId: emp.id, companyName: emp.nombre, rest });
+                        }
+                    });
+                });
+                return list.sort((a,b) => a.rest - b.rest);
+            }, [companies]);
+
             if (loading) return (
                 <div className="h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
                     <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
@@ -390,15 +429,14 @@
                         {/* SIDEBAR */}
                         <aside className="w-20 lg:w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 p-6 flex flex-col">
                             <div className="flex items-center gap-3 mb-12 px-2 text-indigo-600">
-                                <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg">
-                                    <Icon name="wrench" size={24}/>
-                                </div>
-                                <h1 className="hidden lg:block text-xl font-extrabold text-slate-800 dark:text-white tracking-tighter uppercase italic leading-none">ServicePro</h1>
+                                <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg"><Icon name="wrench" size={24}/></div>
+                                <h1 className="hidden lg:block text-xl font-extrabold tracking-tighter uppercase italic leading-none">ServicePro</h1>
                             </div>
                             
                             <nav className="space-y-2 flex-1">
                                 {[
                                     { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+                                    { id: 'calendar', label: 'Proyecciones', icon: 'calendar' },
                                     { id: 'companies', label: 'Empresas', icon: 'company' }
                                 ].map(item => (
                                     <button key={item.id} onClick={() => {setActiveTab(item.id); setSelectedCompanyId(null);}} 
@@ -408,9 +446,14 @@
                                 ))}
                             </nav>
 
-                            <button onClick={() => setDarkMode(!darkMode)} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center lg:justify-between text-slate-500 hover:text-indigo-600 transition-colors">
-                                <Icon name="settings"/> <span className="hidden lg:block text-[10px] font-black uppercase tracking-widest">{darkMode ? 'Oscuro' : 'Claro'}</span>
-                            </button>
+                            <div className="space-y-3">
+                                <button onClick={startScanner} className="w-full p-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl flex items-center justify-center lg:justify-start gap-4 font-black text-[10px] uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all">
+                                    <Icon name="qr"/> <span className="hidden lg:block">Escáner QR</span>
+                                </button>
+                                <button onClick={() => setDarkMode(!darkMode)} className="w-full p-4 bg-slate-50 dark:bg-slate-800 flex items-center justify-center lg:justify-between text-slate-500 rounded-2xl transition-colors">
+                                    <Icon name="settings"/> <span className="hidden lg:block text-[10px] font-black uppercase tracking-widest">{darkMode ? 'Oscuro' : 'Claro'}</span>
+                                </button>
+                            </div>
                         </aside>
 
                         {/* MAIN CONTENT */}
@@ -419,11 +462,7 @@
 
                             {activeTab === 'dashboard' && (
                                 <div className="max-w-5xl mx-auto space-y-10 animate-fade-in">
-                                    <div className="flex justify-between items-center">
-                                        <h2 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight italic leading-none uppercase">Monitor de Alertas</h2>
-                                        <span className="bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border border-rose-100">{alerts.length} Incidencias</span>
-                                    </div>
-
+                                    <h2 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight italic uppercase">Alertas Activas</h2>
                                     <div className="grid gap-4">
                                         {alerts.map((a, i) => (
                                             <div key={i} className="glass-card p-6 rounded-[2.5rem] flex flex-col md:flex-row justify-between items-center gap-6 group transition-all">
@@ -449,13 +488,35 @@
                                                 <button onClick={() => { setSelectedCompanyId(a.companyId); setActiveTab('companies'); }} className="p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-400 hover:bg-indigo-600 hover:text-white transition-all shadow-sm">Ver Detalle</button>
                                             </div>
                                         ))}
-                                        {alerts.length === 0 && (
-                                            <div className="py-24 text-center glass-card rounded-[3rem] border-dashed border-2">
-                                                <div className="bg-emerald-50 dark:bg-emerald-900/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto text-emerald-500 mb-6"><Icon name="check" size={32}/></div>
-                                                <p className="font-extrabold text-slate-800 dark:text-white uppercase tracking-widest text-sm italic">Flota Operativa al 100%</p>
-                                                <p className="text-slate-400 text-xs mt-2 font-semibold italic opacity-60">No hay equipos con alertas críticas activas.</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'calendar' && (
+                                <div className="max-w-5xl mx-auto space-y-10 animate-fade-in">
+                                    <h2 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight italic uppercase">Proyección de Mantenimiento</h2>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {projections.map((p, i) => (
+                                            <div key={i} className="glass-card p-8 rounded-[2.5rem] flex flex-col gap-6">
+                                                <div className="flex justify-between items-start">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="p-4 bg-indigo-50 dark:bg-indigo-950 rounded-2xl text-indigo-600"><Icon name="truck" size={24}/></div>
+                                                        <div>
+                                                            <p className="font-extrabold text-slate-800 dark:text-white uppercase italic">{p.nombre}</p>
+                                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{p.empresaNombre}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-xs font-black text-indigo-600 uppercase tracking-widest">Próximo Service</p>
+                                                        <p className="text-2xl font-black text-slate-800 dark:text-white italic">{p.estDate ? p.estDate.toLocaleDateString() : 'SIN DATOS'}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border dark:border-slate-800 flex justify-between items-center italic">
+                                                    <div className="text-[10px] font-bold text-slate-500 uppercase leading-tight tracking-widest">Promedio Diario:<br/><span className="text-indigo-600 text-sm font-black">{p.avgUsage.toFixed(1)} HS</span></div>
+                                                    <div className="text-[10px] font-bold text-slate-500 uppercase leading-tight tracking-widest text-right">Faltante Ciclo:<br/><span className="text-indigo-600 text-sm font-black">{Math.max(0, p.restHs).toFixed(1)} HS</span></div>
+                                                </div>
                                             </div>
-                                        )}
+                                        ))}
                                     </div>
                                 </div>
                             )}
@@ -463,22 +524,18 @@
                             {activeTab === 'companies' && !activeCompany && (
                                 <div className="max-w-6xl mx-auto space-y-10 animate-fade-in">
                                     <div className="flex justify-between items-end border-b-2 border-slate-200 dark:border-slate-800 pb-8">
-                                        <h2 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight italic leading-none uppercase">Directorio</h2>
-                                        <button onClick={() => setModalType('company')} className="btn-modern px-8 py-3.5 rounded-2xl flex items-center gap-2 italic shadow-lg">
-                                            <Icon name="plus"/> Nueva Empresa
-                                        </button>
+                                        <h2 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight italic uppercase leading-none">Empresas</h2>
+                                        <button onClick={() => setModalType('company')} className="btn-modern px-8 py-3.5 rounded-2xl flex items-center gap-2 italic shadow-lg"><Icon name="plus"/> Nueva Empresa</button>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                         {companies.map(emp => (
-                                            <div key={emp.id} onClick={() => setSelectedCompanyId(emp.id)} className="glass-card p-8 cursor-pointer group flex flex-col min-h-[220px]">
-                                                <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-slate-800 flex items-center justify-center text-indigo-600 mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-inner">
-                                                    <Icon name="company" size={24}/>
-                                                </div>
+                                            <div key={emp.id} onClick={() => setSelectedCompanyId(emp.id)} className="glass-card p-8 cursor-pointer group flex flex-col min-h-[200px]">
+                                                <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-slate-800 flex items-center justify-center text-indigo-600 mb-6 transition-all shadow-inner group-hover:bg-indigo-600 group-hover:text-white"><Icon name="company" size={24}/></div>
                                                 <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-1 leading-tight group-hover:text-indigo-600 transition-colors uppercase italic leading-none">{emp.nombre}</h3>
                                                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">CUIT {emp.cuit}</p>
-                                                <div className="mt-auto pt-6 border-t dark:border-slate-800 flex justify-between items-center">
-                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">{emp.vehiculos?.length || 0} Assets Registrados</span>
-                                                    <Icon name="chevronLeft" className="rotate-180 text-slate-300"/>
+                                                <div className="mt-auto pt-6 border-t dark:border-slate-800 flex justify-between items-center text-slate-400 italic font-bold text-[10px]">
+                                                    <span>{emp.vehiculos?.length || 0} Assets</span>
+                                                    <Icon name="chevronLeft" className="rotate-180"/>
                                                 </div>
                                             </div>
                                         ))}
@@ -497,7 +554,7 @@
                                             <h2 className="text-5xl font-extrabold text-slate-900 dark:text-white tracking-tighter mb-4 italic uppercase leading-none">{activeCompany.nombre}</h2>
                                             <div className="flex flex-wrap gap-3">
                                                 <span className="px-4 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 border dark:border-slate-700"><Icon name="hash" size={12}/>{activeCompany.cuit}</span>
-                                                <span className="px-4 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 rounded-full text-[10px] font-bold uppercase tracking-widest italic flex items-center gap-2 border border-indigo-100 dark:border-indigo-900/30"><Icon name="user" size={12}/>{activeCompany.responsable}</span>
+                                                <span className="px-4 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 rounded-full text-[10px] font-bold uppercase tracking-widest italic flex items-center gap-2 border border-indigo-100"><Icon name="user" size={12}/>{activeCompany.responsable}</span>
                                             </div>
                                         </div>
                                         <button onClick={() => setModalType('vehicle')} className="btn-modern px-8 py-4 rounded-2xl flex items-center gap-2 shadow-xl italic text-sm leading-none">
@@ -521,14 +578,13 @@
                                                     <div className="flex flex-col xl:flex-row gap-10">
                                                         <div className="flex-1 space-y-6">
                                                             <div className="flex items-center gap-6">
-                                                                <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-3xl flex items-center justify-center text-slate-400 group-hover:text-indigo-600 transition-all">
-                                                                    <Icon name="truck" size={32}/>
-                                                                </div>
+                                                                <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-3xl flex items-center justify-center text-slate-400 group-hover:text-indigo-600 transition-all"><Icon name="truck" size={32}/></div>
                                                                 <div>
-                                                                    <h4 className="text-2xl font-extrabold text-slate-800 dark:text-white italic tracking-tight uppercase leading-none mb-1">{v.nombre}</h4>
-                                                                    <div className="flex items-center gap-3">
+                                                                    <h4 className="text-2xl font-extrabold text-slate-800 dark:text-white italic tracking-tight leading-none mb-1">{v.nombre}</h4>
+                                                                    <div className="flex items-center gap-4">
                                                                         <span className="mono text-indigo-600 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-lg text-sm">{v.horometroTotal.toLocaleString()} HS</span>
-                                                                        <button onClick={() => downloadVehiclePDF(activeCompany, v)} className="text-slate-300 hover:text-indigo-600 transition-colors" title="Descargar Ficha Técnica"><Icon name="download" size={18}/></button>
+                                                                        <button onClick={() => downloadVehiclePDF(activeCompany, v)} className="text-slate-300 hover:text-indigo-600 transition-colors" title="Descargar Ficha"><Icon name="download" size={18}/></button>
+                                                                        <button onClick={() => { setActiveVehicleId(v.id); setModalType('qr'); setTimeout(() => generateQR(v.id), 100); }} className="text-slate-300 hover:text-indigo-600 transition-colors" title="Ficha QR"><Icon name="qr" size={18}/></button>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -546,21 +602,14 @@
 
                                                         <div className="flex flex-row xl:flex-col gap-3 w-full xl:w-64 justify-center">
                                                             <button onClick={() => { setActiveVehicleId(v.id); setModalType('log'); }} className="flex-1 p-3 bg-slate-50 dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-[11px] uppercase tracking-widest italic transition-all leading-none">Registrar Uso</button>
-                                                            <button onClick={() => handleToggleStatus(v.id, v.operativo)} className={`flex-1 p-3 rounded-xl font-bold text-[11px] uppercase tracking-widest border transition-all italic leading-none ${v.operativo ? 'bg-white dark:bg-slate-950 border-rose-200 text-rose-500 hover:bg-rose-50' : 'bg-emerald-500 text-white shadow-md shadow-emerald-500/10'}`}>
-                                                                {v.operativo ? 'Informar Avería' : 'Reactivar'}
-                                                            </button>
+                                                            <button onClick={() => handleToggleStatus(v.id, v.operativo)} className={`flex-1 p-3 rounded-xl font-bold text-[11px] uppercase tracking-widest border transition-all italic leading-none ${v.operativo ? 'bg-white dark:bg-slate-950 border-rose-200 text-rose-500 hover:bg-rose-50' : 'bg-emerald-500 text-white shadow-md shadow-emerald-500/10'}`}>{v.operativo ? 'Informar Avería' : 'Reactivar'}</button>
                                                             <button onClick={() => { setActiveVehicleId(v.id); setModalType('service'); }} className="flex-1 p-3 bg-indigo-600 text-white rounded-xl font-bold text-[11px] uppercase tracking-widest shadow-lg italic leading-none">Realizar Service</button>
                                                         </div>
                                                     </div>
 
-                                                    {/* SECCIÓN DE HISTORIAL INTEGRADA - ACTUALIZACIÓN AUTOMÁTICA */}
                                                     <div className="pt-4 border-t dark:border-slate-800">
-                                                        <button 
-                                                            onClick={() => toggleHistory(v.id)}
-                                                            className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 transition-colors"
-                                                        >
-                                                            <Icon name="history" size={14}/> 
-                                                            {isExpanded ? 'Ocultar Detalle Técnico' : 'Ver Detalle de Registros'}
+                                                        <button onClick={() => toggleHistory(v.id)} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 transition-colors">
+                                                            <Icon name="history" size={14}/> {isExpanded ? 'Ocultar Detalle Técnico' : 'Ver Detalle de Registros'}
                                                             <Icon name="chevronDown" size={14} className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}/>
                                                         </button>
 
@@ -569,37 +618,20 @@
                                                                 <div className="overflow-hidden rounded-2xl border dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 shadow-inner">
                                                                     <table className="w-full history-table text-[11px]">
                                                                         <thead className="bg-slate-100 dark:bg-slate-800/50">
-                                                                            <tr>
-                                                                                <th>Fecha</th>
-                                                                                <th>Evento</th>
-                                                                                <th>Lectura</th>
-                                                                                <th>Detalle Técnico / Consumo</th>
-                                                                            </tr>
+                                                                            <tr><th>Fecha</th><th>Evento</th><th>Lectura</th><th>Detalle Técnico / Consumo</th></tr>
                                                                         </thead>
                                                                         <tbody>
                                                                             {[...(v.eventos || [])].reverse().map((ev, idx) => (
                                                                                 <tr key={idx} className="hover:bg-white dark:hover:bg-slate-800/40 transition-all">
                                                                                     <td className="font-bold opacity-60 italic">{ev.fecha}</td>
-                                                                                    <td>
-                                                                                        <span className={`px-2 py-0.5 rounded-md font-bold text-[9px] uppercase tracking-tighter shadow-sm border ${
-                                                                                            ev.tipo === 'SERVICE' ? 'bg-indigo-100 text-indigo-700 border-indigo-200' :
-                                                                                            ev.tipo === 'BAJA' ? 'bg-rose-100 text-rose-700 border-rose-200' :
-                                                                                            ev.tipo === 'ALTA' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
-                                                                                            'bg-slate-200 text-slate-600 border-slate-300'
-                                                                                        }`}>
-                                                                                            {ev.tipo}
-                                                                                        </span>
-                                                                                    </td>
+                                                                                    <td><span className={`px-2 py-0.5 rounded-md font-bold text-[9px] uppercase tracking-tighter shadow-sm border ${ev.tipo === 'SERVICE' ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : ev.tipo === 'BAJA' ? 'bg-rose-100 text-rose-700 border-rose-200' : ev.tipo === 'ALTA' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-slate-200 text-slate-600 border-slate-300'}`}>{ev.tipo}</span></td>
                                                                                     <td className="mono font-bold text-indigo-600">{(ev.horas || v.horometroTotal).toLocaleString()} HS</td>
                                                                                     <td className="text-slate-500 font-semibold italic max-w-[280px] break-words">
                                                                                         {ev.litros ? <span className="text-amber-600 font-black flex items-center gap-1 mb-1"><Icon name="fuel" size={10}/> Carga: {ev.litros} Lts. </span> : ''}
-                                                                                        {ev.nota || ev.motivo || (ev.insumos ? `Repuestos: ${ev.insumos.join(', ')}` : '-')}
+                                                                                        {ev.nota || ev.motivo || (ev.insumos ? `Insumos: ${ev.insumos.join(', ')}` : '-')}
                                                                                     </td>
                                                                                 </tr>
                                                                             ))}
-                                                                            {(!v.eventos || v.eventos.length === 0) && (
-                                                                                <tr><td colSpan="4" className="text-center py-10 opacity-40 font-bold italic uppercase text-[10px] tracking-widest italic">No se registran datos técnicos históricos</td></tr>
-                                                                            )}
                                                                         </tbody>
                                                                     </table>
                                                                 </div>
@@ -615,25 +647,15 @@
                         </main>
 
                         {/* --- MODALES DINÁMICOS --- */}
-
                         {modalType === 'company' && (
                             <Modal title="Apertura de Cuenta" onClose={() => setModalType(null)}>
                                 <div className="space-y-5">
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 italic">Razón Social</label>
-                                        <input className="w-full input-modern font-bold text-lg" placeholder="Ej: Transportes Alfa S.A." value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} />
-                                    </div>
+                                    <input className="w-full input-modern font-bold text-lg" placeholder="Razón Social" onChange={e => setForm({...form, nombre: e.target.value})} />
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 italic tracking-widest">C.U.I.T.</label>
-                                            <input className="w-full input-modern" placeholder="30-..." value={form.cuit} onChange={e => setForm({...form, cuit: e.target.value})} />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 italic">Encargado Operativo</label>
-                                            <input className="w-full input-modern" placeholder="Nombre completo" value={form.responsable} onChange={e => setForm({...form, responsable: e.target.value})} />
-                                        </div>
+                                        <input className="w-full input-modern" placeholder="C.U.I.T." onChange={e => setForm({...form, cuit: e.target.value})} />
+                                        <input className="w-full input-modern" placeholder="Encargado" onChange={e => setForm({...form, responsable: e.target.value})} />
                                     </div>
-                                    <button onClick={handleAddCompany} className="btn-modern w-full p-5 rounded-3xl mt-4 italic shadow-2xl uppercase text-xs tracking-widest">Confirmar Registro</button>
+                                    <button onClick={handleAddCompany} className="btn-modern w-full p-5 rounded-3xl mt-4 italic shadow-2xl uppercase text-xs tracking-widest leading-none">Confirmar Alta</button>
                                 </div>
                             </Modal>
                         )}
@@ -641,58 +663,41 @@
                         {modalType === 'vehicle' && (
                             <Modal title="Ficha Técnica de Equipo" onClose={() => setModalType(null)}>
                                 <div className="space-y-6">
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-indigo-600 uppercase ml-2 tracking-[0.2em] italic">Identificación (Marca / Modelo / Interno)</label>
-                                        <input className="w-full input-modern font-bold text-xl uppercase italic text-indigo-600" placeholder="Ej: CAT 320 GC - INT 05" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} />
-                                    </div>
+                                    <input className="w-full input-modern font-bold text-xl uppercase italic text-indigo-600" placeholder="Marca / Modelo / Interno" onChange={e => setForm({...form, nombre: e.target.value})} />
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <input className="w-full input-modern" placeholder="Marca (Ej: CAT)" onChange={e => setForm({...form, marca: e.target.value})} />
+                                        <input className="w-full input-modern" placeholder="Modelo (Ej: 320)" onChange={e => setForm({...form, modelo: e.target.value})} />
+                                        <input className="w-full input-modern" placeholder="Nro de Serie" onChange={e => setForm({...form, serie: e.target.value})} />
+                                        <input className="w-full input-modern" placeholder="Año" onChange={e => setForm({...form, año: e.target.value})} />
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-indigo-600 uppercase ml-2 tracking-widest italic leading-none">Ciclo de Mantenimiento (HS)</label>
-                                            <input className="w-full input-modern" type="number" value={form.serviceInterval} onChange={e => setForm({...form, serviceInterval: e.target.value})} />
+                                            <label className="text-[10px] font-bold text-indigo-600 uppercase ml-2 italic leading-none">Ciclo de Aceite (HS)</label>
+                                            <input className="w-full input-modern" type="number" defaultValue="250" onChange={e => setForm({...form, serviceInterval: e.target.value})} />
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 italic leading-none">Horómetro de Entrada</label>
-                                            <input className="w-full input-modern mono text-xl" type="number" placeholder="0.0" value={form.horometro} onChange={e => setForm({...form, horometro: e.target.value})} />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 italic leading-none">Marca</label>
-                                            <input className="w-full input-modern" placeholder="Ej: Caterpillar" value={form.marca} onChange={e => setForm({...form, marca: e.target.value})} />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 italic leading-none">Modelo</label>
-                                            <input className="w-full input-modern" placeholder="Ej: 320D" value={form.modelo} onChange={e => setForm({...form, modelo: e.target.value})} />
-                                        </div>
-                                        <div className="sm:col-span-2 space-y-1">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 italic leading-none">Número de Serie / Chasis</label>
-                                            <input className="w-full input-modern" placeholder="VIN / SN" value={form.serie} onChange={e => setForm({...form, serie: e.target.value})} />
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 italic leading-none">Horómetro Actual</label>
+                                            <input className="w-full input-modern mono text-xl" type="number" placeholder="0.0" onChange={e => setForm({...form, horometro: e.target.value})} />
                                         </div>
                                     </div>
-                                    <button onClick={handleAddVehicle} className="btn-modern w-full p-5 rounded-3xl mt-4 italic shadow-xl uppercase text-sm tracking-widest leading-none">Vincular a Flota Operativa</button>
+                                    <button onClick={handleAddVehicle} className="btn-modern w-full p-5 rounded-3xl mt-4 italic shadow-xl uppercase text-sm tracking-widest leading-none">Vincular a Flota</button>
                                 </div>
                             </Modal>
                         )}
 
                         {modalType === 'log' && (
-                            <Modal title="Registrar Uso y Consumo" onClose={() => setModalType(null)}>
+                            <Modal title="Cargar Uso y Consumo" onClose={() => setModalType(null)}>
                                 <div className="space-y-6">
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-indigo-500 uppercase ml-2 italic tracking-widest leading-none">Horómetro Actual</label>
-                                            <input className="w-full p-6 rounded-2xl input-modern mono text-4xl text-center text-indigo-600" type="number" autoFocus placeholder="0.0" value={form.horas} onChange={e => setForm({...form, horas: e.target.value})} />
+                                            <label className="text-[10px] font-bold text-indigo-500 uppercase ml-2 italic tracking-widest">Horómetro Actual</label>
+                                            <input className="w-full p-6 rounded-2xl input-modern mono text-4xl text-center text-indigo-600" type="number" autoFocus value={form.horas} onChange={e => setForm({...form, horas: e.target.value})} />
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-amber-500 uppercase ml-2 italic tracking-widest leading-none">Combustible Cargado (Lts)</label>
-                                            <div className="relative">
-                                                <Icon name="fuel" className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"/>
-                                                <input className="w-full p-6 pl-12 rounded-2xl input-modern mono text-4xl text-center text-amber-600" type="number" placeholder="0" value={form.litros} onChange={e => setForm({...form, litros: e.target.value})} />
-                                            </div>
+                                            <label className="text-[10px] font-bold text-amber-500 uppercase ml-2 italic tracking-widest">Combustible (Lts)</label>
+                                            <div className="relative"><Icon name="fuel" className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"/><input className="w-full p-6 pl-12 rounded-2xl input-modern mono text-4xl text-center text-amber-600" type="number" value={form.litros} onChange={e => setForm({...form, litros: e.target.value})} /></div>
                                         </div>
                                     </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 italic leading-none">Observaciones del Operador</label>
-                                        <textarea className="w-full input-modern min-h-[120px] italic text-sm font-semibold" placeholder="Reportar novedades mecánicas o del turno..." value={form.nota} onChange={e => setForm({...form, nota: e.target.value})} />
-                                    </div>
-                                    <button onClick={handleDailyLog} className="btn-modern w-full p-6 rounded-3xl shadow-xl italic tracking-widest leading-none uppercase text-xs">Guardar Registro Diario</button>
+                                    <textarea className="w-full input-modern min-h-[120px] italic text-sm font-semibold" placeholder="Novedades mecánicas o del turno..." value={form.nota} onChange={e => setForm({...form, nota: e.target.value})} />
+                                    <button onClick={handleDailyLog} className="btn-modern w-full p-6 rounded-3xl shadow-xl italic tracking-widest leading-none">Confirmar Registro</button>
                                 </div>
                             </Modal>
                         )}
@@ -701,60 +706,50 @@
                             <Modal title="Reporte Técnico de Service" onClose={() => setModalType(null)}>
                                 <div className="space-y-6">
                                     <div className="p-6 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 rounded-3xl text-center shadow-inner">
-                                        <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-2 italic leading-none">Punto de Control para Reinicio de Ciclo</p>
-                                        <p className="mono text-3xl font-black text-emerald-700 dark:text-emerald-300 italic leading-none">
-                                            HS {activeCompany?.vehiculos?.find(v => v.id === activeVehicleId)?.horometroTotal?.toLocaleString() || '0'}
-                                        </p>
+                                        <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-1 italic leading-none">Punto de Control Técnico</p>
+                                        <p className="mono text-3xl font-black text-emerald-700 dark:text-emerald-300 italic">HS {activeCompany?.vehiculos?.find(v => v.id === activeVehicleId)?.horometroTotal?.toLocaleString() || '0'}</p>
                                     </div>
-                                    
                                     <div className="space-y-4">
-                                        <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest ml-2 italic leading-none">Selección de Repuestos / Insumos</label>
-                                        <div className="flex flex-wrap gap-2">
-                                            {['Filtro Aceite', 'Filtro Aire', 'Filtro Combustible', 'Aceite 15W40', 'Grasa Litio', 'Líquido Ref.', 'Hidráulico 68'].map(item => (
-                                                <button key={item} onClick={() => setForm(prev => ({ ...prev, insumos: prev.insumos.includes(item) ? prev.insumos.filter(i => i !== item) : [...prev.insumos, item] }))} 
-                                                    className={`px-3 py-2 rounded-xl border-2 font-bold text-[10px] transition-all italic uppercase tracking-tighter ${form.insumos.includes(item) ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-500'}`}>
-                                                    {item}
-                                                </button>
-                                            ))}
-                                        </div>
-                                        
-                                        <div className="flex gap-2 p-2 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 focus-within:border-indigo-600 transition-all">
-                                            <input className="flex-1 bg-transparent px-4 py-2 text-xs font-bold focus:outline-none" placeholder="Agregar otro insumo..." value={form.insumoManual} onChange={e => setForm({...form, insumoManual: e.target.value})} />
-                                            <button onClick={() => { if(form.insumoManual) setForm(prev => ({ ...prev, insumos: [...prev.insumos, form.insumoManual.toUpperCase()], insumoManual: '' })); }} className="w-10 h-10 bg-indigo-600 text-white rounded-xl font-black flex items-center justify-center shadow-lg active:scale-95 transition-all"><Icon name="plus" size={18}/></button>
-                                        </div>
-
-                                        <div className="flex flex-wrap gap-2">
-                                            {form.insumos.map((ins, idx) => (
-                                                !['Filtro Aceite', 'Filtro Aire', 'Filtro Combustible', 'Aceite 15W40', 'Grasa Litio', 'Líquido Ref.', 'Hidráulico 68'].includes(ins) && (
-                                                    <span key={idx} className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 px-3 py-1.5 rounded-lg text-[10px] font-black italic uppercase shadow-sm border border-indigo-100">
-                                                        {ins}
-                                                        <button onClick={() => setForm(prev => ({ ...prev, insumos: prev.insumos.filter(i => i !== ins) }))} className="hover:text-rose-600 transition-colors"><Icon name="x" size={12}/></button>
-                                                    </span>
-                                                )
-                                            ))}
-                                        </div>
+                                        <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest ml-2 italic leading-none">Repuestos Reemplazados</label>
+                                        <div className="flex flex-wrap gap-2">{['Filtro Aceite', 'Filtro Aire', 'Filtro Combustible', 'Aceite 15W40', 'Grasa Litio'].map(item => (<button key={item} onClick={() => setForm(prev => ({ ...prev, insumos: prev.insumos.includes(item) ? prev.insumos.filter(i => i !== item) : [...prev.insumos, item] }))} className={`px-3 py-2 rounded-xl border-2 font-bold text-[10px] transition-all italic uppercase ${form.insumos.includes(item) ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 dark:bg-slate-800 text-slate-500'}`}>{item}</button>))}</div>
+                                        <div className="flex gap-2 p-2 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 focus-within:border-indigo-600 transition-all"><input className="flex-1 bg-transparent px-4 py-2 text-xs font-bold focus:outline-none" placeholder="Otro repuesto..." value={form.insumoManual} onChange={e => setForm({...form, insumoManual: e.target.value})} /><button onClick={() => { if(form.insumoManual) setForm(prev => ({ ...prev, insumos: [...prev.insumos, form.insumoManual.toUpperCase()], insumoManual: '' })); }} className="w-10 h-10 bg-indigo-600 text-white rounded-xl font-black flex items-center justify-center shadow-lg active:scale-95 transition-all leading-none"><Icon name="plus" size={18}/></button></div>
                                     </div>
-
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 italic leading-none">Notas Adicionales / Firma Mecánico</label>
-                                        <textarea className="w-full input-modern min-h-[120px] italic font-semibold text-sm" placeholder="Especificar marcas, fallas detectadas o tareas realizadas..." value={form.note} onChange={e => setForm({...form, nota: e.target.value})} />
-                                    </div>
-                                    <button onClick={handleServiceReset} className="btn-modern w-full p-6 rounded-3xl italic shadow-2xl tracking-widest leading-none uppercase text-xs">Certificar y Reiniciar Ciclo</button>
+                                    <textarea className="w-full input-modern min-h-[120px] italic font-semibold text-sm" placeholder="Detalle técnico adicional..." value={form.nota} onChange={e => setForm({...form, nota: e.target.value})} />
+                                    <button onClick={handleServiceReset} className="btn-modern w-full p-5 rounded-3xl italic shadow-2xl tracking-widest leading-none uppercase text-xs">Certificar Service</button>
                                 </div>
                             </Modal>
                         )}
 
                         {modalType === 'downtime' && (
-                            <Modal title="Certificado de Parada Técnica" onClose={() => setModalType(null)}>
+                            <Modal title="Informe de Avería" onClose={() => setModalType(null)}>
                                 <div className="space-y-5">
-                                    <div className="p-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-900/50 rounded-2xl flex items-center gap-3">
-                                        <Icon name="alert" size={24} className="text-rose-600 animate-pulse"/>
-                                        <p className="text-[10px] font-bold text-rose-600 uppercase tracking-widest leading-tight">El equipo cambiará a estado NO OPERATIVO de forma inmediata</p>
-                                    </div>
-                                    <textarea className="w-full input-modern min-h-[150px] italic font-semibold" placeholder="Describa el motivo detallado de la avería..." value={form.motivo} onChange={e => setForm({...form, motivo: e.target.value})} />
-                                    <button onClick={handleConfirmDowntime} className="w-full p-6 bg-rose-600 hover:bg-rose-700 rounded-3xl font-bold text-white shadow-xl transition-all uppercase text-[10px] tracking-widest italic leading-none">Emitir Orden de Parada</button>
+                                    <textarea className="w-full input-modern min-h-[150px] italic font-semibold" placeholder="Describa la falla detalladamente..." value={form.motivo} onChange={e => setForm({...form, motivo: e.target.value})} />
+                                    <button onClick={handleConfirmDowntime} className="w-full p-5 bg-rose-600 hover:bg-rose-700 rounded-3xl font-bold text-white shadow-xl transition-all uppercase text-[10px] tracking-widest italic leading-none">Emitir Orden de Parada</button>
                                 </div>
                             </Modal>
+                        )}
+
+                        {modalType === 'qr' && (
+                            <Modal title="Identificador QR del Activo" onClose={() => setModalType(null)}>
+                                <div className="space-y-8 text-center flex flex-col items-center">
+                                    <div className="p-6 bg-white rounded-[2.5rem] shadow-2xl border-4 border-indigo-600" id={`qr-container-${activeVehicleId}`}></div>
+                                    <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] italic leading-relaxed max-w-sm">Coloque esta etiqueta en la cabina del equipo para acceso inmediato a la ficha técnica.</p>
+                                    <button onClick={() => window.print()} className="btn-modern px-10 py-4 rounded-2xl italic shadow-xl text-sm leading-none">Imprimir Etiqueta</button>
+                                </div>
+                            </Modal>
+                        )}
+
+                        {scannerActive && (
+                            <div className="fixed inset-0 z-[200] bg-slate-950/95 flex items-center justify-center p-8 animate-fade-in">
+                                <div className="w-full max-w-md space-y-8 text-center">
+                                    <div id="reader" className="shadow-2xl border-4 border-indigo-600"></div>
+                                    <div className="space-y-2">
+                                        <p className="text-white font-black text-2xl tracking-tighter uppercase animate-pulse">Sincronizando Sensor...</p>
+                                        <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest italic">Apunta la cámara al código QR del equipo</p>
+                                    </div>
+                                    <button onClick={() => { setScannerActive(false); if(scannerRef.current) scannerRef.current.stop(); }} className="px-12 py-5 bg-white rounded-3xl font-black text-xs uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all leading-none">Cancelar</button>
+                                </div>
+                            </div>
                         )}
 
                     </div>
