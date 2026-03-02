@@ -1,8 +1,10 @@
-import App from './App.js';
+// NO USAR IMPORTS AQUÍ
+const rootElement = document.getElementById('root');
+const root = ReactDOM.createRoot(rootElement);
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
+// Renderizamos la App que ya vive en window
 root.render(
   <React.StrictMode>
-    <App />
+    <window.App />
   </React.StrictMode>
 );
