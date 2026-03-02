@@ -1,5 +1,4 @@
-// Forzamos la ruta completa desde la raíz del sitio
-import App from '/src/App.js'; 
+import App from './App.js';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
