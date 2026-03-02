@@ -1,13 +1,14 @@
 /**
- * PUNTO DE ENTRADA PRINCIPAL
- * Este archivo conecta el componente App con el HTML.
+ * PUNTO DE ENTRADA PRINCIPAL - SERVICEPRO EAM
+ * Este archivo conecta la lógica de React con el DOM del index.html
  */
 
-// Importante: El punto y la barra (./) le dicen al navegador 
-// que busque en la misma carpeta donde está main.js
+// Importante: Usamos './' para que el navegador busque App.js 
+// en la misma carpeta (src) donde reside este archivo.
 import App from './App.js';
 
-// Usamos ReactDOM (cargado globalmente desde el index.html)
+// Inicializamos el contenedor raíz de React
+// ReactDOM se encuentra disponible globalmente gracias al CDN en index.html
 const root = ReactDOM.createRoot(document.getElementById('root'));
 
 root.render(
