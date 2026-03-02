@@ -1,14 +1,13 @@
 /**
- * PUNTO DE ENTRADA PRINCIPAL - SERVICEPRO EAM
- * Este archivo conecta la lógica de React con el DOM del index.html
+ * PUNTO DE ENTRADA - CARPETA SRC
+ * Este archivo informa a React que App.js está en su misma ubicación.
  */
 
-// Importante: Usamos './' para que el navegador busque App.js 
-// en la misma carpeta (src) donde reside este archivo.
+// Usamos la ruta relativa explícita. 
+// Al estar main.js y App.js en /src/, el './' es la forma correcta.
 import App from './App.js';
 
-// Inicializamos el contenedor raíz de React
-// ReactDOM se encuentra disponible globalmente gracias al CDN en index.html
+// React y ReactDOM ya están en el Window gracias al index.html
 const root = ReactDOM.createRoot(document.getElementById('root'));
 
 root.render(
