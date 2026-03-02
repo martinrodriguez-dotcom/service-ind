@@ -1,6 +1,7 @@
-// Accedemos a las funciones de Firebase desde el SDK cargado en el index.html
-// Nota: Importamos 'db' desde nuestro archivo de configuración local
-import { db } from "../firebase.js";
+// Importamos la base de datos usando la ruta absoluta desde la raíz
+import { db } from "/src/firebase.js";
+
+// Importamos las funciones directamente de los servidores de Google para evitar errores de compilación
 import { 
   collection, 
   addDoc, 
@@ -12,8 +13,8 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 /**
- * SERVICIOS DE FIRESTORE
- * Adaptado para despliegue directo sin consola.
+ * SERVICIOS DE FIRESTORE - SERVICEPRO EAM
+ * Lógica de persistencia de datos en la nube.
  */
 
 const COLLECTION_NAME = "companies";
@@ -30,11 +31,11 @@ export const subscribeToCompanies = (callback) => {
       callback(companies);
     });
   } catch (error) {
-    console.error("Error en suscripción:", error);
+    console.error("Error en suscripción Firestore:", error);
   }
 };
 
-// Crear una nueva empresa
+// Crear una nueva empresa en el sistema
 export const addCompany = async (companyData) => {
   try {
     await addDoc(collection(db, COLLECTION_NAME), {
@@ -44,11 +45,11 @@ export const addCompany = async (companyData) => {
     });
   } catch (error) {
     console.error("Error al añadir empresa:", error);
-    alert("Error al guardar en base de datos. Verifica la consola.");
+    alert("Error de escritura en Firebase. Revisa las Reglas de Seguridad.");
   }
 };
 
-// Agregar un vehículo a una empresa
+// Agregar un vehículo a una empresa específica
 export const addVehicleToCompany = async (companyId, vehicleData) => {
   const companyRef = doc(db, COLLECTION_NAME, companyId);
   const initialHoras = parseFloat(vehicleData.horometroInicial);
@@ -79,7 +80,7 @@ export const addVehicleToCompany = async (companyId, vehicleData) => {
   }
 };
 
-// Actualizar vehículos (para registros diarios, services o bajas)
+// Actualizar el array de vehículos (Cargas diarias, Services, Bajas)
 export const updateCompanyVehicles = async (companyId, updatedVehicles) => {
   const companyRef = doc(db, COLLECTION_NAME, companyId);
   try {
