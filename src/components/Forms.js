@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { X, DollarSign, Fuel, Wrench, CheckCircle2, AlertCircle, QrCode, Info, Truck, Clock, User, Hash } from 'lucide-react';
+// --- ACCESO A LIBRERÍAS GLOBALES ---
+const { useState } = React;
+const { X, DollarSign, Fuel, Wrench, CheckCircle2, AlertCircle, QrCode, Info, Truck, Clock, User, Hash } = lucide;
 
 // --- COMPONENTES BASE DE ESTILO "GUANTES UI" ---
 
