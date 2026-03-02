@@ -1,8 +1,11 @@
-import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+// Importamos los módulos directamente desde los servidores de Google
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// Configuración de Firebase obtenida desde la consola de Firebase
-// Deberás reemplazar estos valores con los de tu proyecto real
+/**
+ * CONFIGURACIÓN GLOBAL DE FIREBASE
+ * Reemplaza los valores con los de tu consola de Firebase (Project Settings)
+ */
 const firebaseConfig = {
   apiKey: "TU_API_KEY",
   authDomain: "TU_PROYECTO.firebaseapp.com",
@@ -12,10 +15,10 @@ const firebaseConfig = {
   appId: "TU_APP_ID"
 };
 
-// Inicializar Firebase
+// Inicializar la conexión con Google
 const app = initializeApp(firebaseConfig);
 
-// Inicializar la base de datos Firestore
+// Exportar la base de datos para que firestoreService.js pueda usarla
 export const db = getFirestore(app);
 
 export default app;
