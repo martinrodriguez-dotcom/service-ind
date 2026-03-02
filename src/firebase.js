@@ -1,24 +1,24 @@
-// Importamos los módulos directamente desde los servidores de Google
+// Importamos los módulos directamente desde los servidores de Google (Versión Web SDK)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 /**
- * CONFIGURACIÓN GLOBAL DE FIREBASE
- * Reemplaza los valores con los de tu consola de Firebase (Project Settings)
+ * CONFIGURACIÓN OFICIAL FIREBASE - SERVICE-IND
+ * Integrada para despliegue directo sin consola.
  */
 const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_PROYECTO.firebaseapp.com",
-  projectId: "TU_PROYECTO_ID",
-  storageBucket: "TU_PROYECTO.appspot.com",
-  messagingSenderId: "TU_SENDER_ID",
-  appId: "TU_APP_ID"
+  apiKey: "AIzaSyA_RnRMxTrKDcNtyLfPRxHxVpqnKhTFemQ",
+  authDomain: "service-ind.firebaseapp.com",
+  projectId: "service-ind",
+  storageBucket: "service-ind.firebasestorage.app",
+  messagingSenderId: "659187337339",
+  appId: "1:659187337339:web:ad95e28d129883de4dfade"
 };
 
-// Inicializar la conexión con Google
+// Inicializar la conexión con Google Firebase
 const app = initializeApp(firebaseConfig);
 
-// Exportar la base de datos para que firestoreService.js pueda usarla
+// Inicializar y exportar la base de datos Firestore
 export const db = getFirestore(app);
 
 export default app;
