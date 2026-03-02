@@ -1,15 +1,7 @@
-/**
- * PUNTO DE ENTRADA - CARPETA SRC
- * Este archivo informa a React que App.js está en su misma ubicación.
- */
+// Forzamos la ruta completa desde la raíz del sitio
+import App from '/src/App.js'; 
 
-// Usamos la ruta relativa explícita. 
-// Al estar main.js y App.js en /src/, el './' es la forma correcta.
-import App from './App.js';
-
-// React y ReactDOM ya están en el Window gracias al index.html
 const root = ReactDOM.createRoot(document.getElementById('root'));
-
 root.render(
   <React.StrictMode>
     <App />
