@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>ServicePro EAM | Industrial Asset Management</title>
+    <title>ServicePro EAM | Modern Asset Management</title>
     
     <!-- CORE LIBRARIES -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -15,13 +15,112 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+        
+        :root {
+            --primary: #4f46e5;
+            --primary-dark: #3730a3;
+            --accent: #f59e0b;
+            --bg-light: #f8fafc;
+            --bg-dark: #0f172a;
+        }
+
+        body { 
+            margin: 0; 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: var(--bg-light); 
+            color: #1e293b; 
+            overflow: hidden; 
+            transition: background-color 0.3s ease;
+        }
+
+        .dark body { background-color: #020617; color: #f1f5f9; }
+
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(226, 232, 240, 1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .dark .glass-card {
+            background: rgba(15, 23, 42, 0.8);
+            border-color: rgba(30, 41, 59, 0.8);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+        }
+
+        .glass-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--primary);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-modern {
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+            color: white;
+            font-weight: 700;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+            transition: all 0.2s;
+        }
+
+        .btn-modern:hover { transform: scale(1.02); opacity: 0.95; }
+        .btn-modern:active { transform: scale(0.98); }
+
+        .input-modern {
+            background: #f1f5f9;
+            border: 2px solid transparent;
+            border-radius: 1rem;
+            padding: 1rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .dark .input-modern { background: #1e293b; color: white; }
+
+        .input-modern:focus {
+            background: white;
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+        }
+
+        .dark .input-modern:focus { background: #0f172a; }
+
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 100px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .animate-pulse-slow {
+            animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+    </style>
+</head>
+<body class="transition-colors duration-300">
+    <div id="root"></div>
+
     <!-- FIREBASE SETUP -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, onSnapshot, addDoc, updateDoc, doc, arrayUnion, query } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         
         const firebaseConfig = {
-            apiKey: "AIzaSyA_RnRMxTrKDcNtyLfPRxHxVpqnKhTFemQ",
+            apiKey: "",
             authDomain: "service-ind.firebaseapp.com",
             projectId: "service-ind",
             storageBucket: "service-ind.firebasestorage.app",
@@ -29,124 +128,54 @@
             appId: "1:659187337339:web:ad95e28d129883de4dfade"
         };
         
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        
-        window.db = db;
-        window.fb = { collection, onSnapshot, addDoc, updateDoc, doc, arrayUnion, query };
+        try {
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
+            
+            // Expose to window for Babel access
+            window.db = db;
+            window.fb = { collection, onSnapshot, addDoc, updateDoc, doc, arrayUnion, query };
+            
+            // Custom event to notify that Firebase is ready
+            window.dispatchEvent(new Event('firebase-ready'));
+        } catch (error) {
+            console.error("Error initializing Firebase:", error);
+        }
     </script>
 
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Roboto+Mono:wght@500;700&display=swap');
-        
-        :root {
-            --hazard-orange: #ea580c;
-            --industrial-dark: #020617;
-            --panel-bg: #0f172a;
-            --border-heavy: #1e293b;
-        }
-
-        body { 
-            margin: 0; 
-            font-family: 'Inter', sans-serif; 
-            background-color: var(--industrial-dark); 
-            color: #f1f5f9; 
-            overflow: hidden; 
-        }
-
-        .mono { font-family: 'Roboto Mono', monospace; }
-
-        .hazard-stripe {
-            background: repeating-linear-gradient(
-                45deg,
-                #ea580c,
-                #ea580c 10px,
-                #020617 10px,
-                #020617 20px
-            );
-        }
-
-        .industrial-card {
-            background: linear-gradient(145deg, #0f172a, #1e293b);
-            border: 2px solid var(--border-heavy);
-            border-top-width: 4px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
-            transition: all 0.2s ease;
-        }
-
-        .lcd-display {
-            background: #000;
-            color: #0f0;
-            text-shadow: 0 0 5px #0f0;
-            border: 2px inset #334155;
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-        }
-
-        .lcd-display-alert {
-            color: #ff3e3e;
-            text-shadow: 0 0 8px #ff3e3e;
-        }
-
-        .btn-industrial {
-            background: var(--hazard-orange);
-            font-weight: 900;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            transition: all 0.2s;
-        }
-
-        .btn-industrial:active { transform: translateY(2px); }
-
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: var(--industrial-dark); }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
-
-        @keyframes pulse-border {
-            0% { border-color: #ea580c; }
-            50% { border-color: #7c2d12; }
-            100% { border-color: #ea580c; }
-        }
-        .critical-pulse { animation: pulse-border 2s infinite; }
-    </style>
-</head>
-<body>
-    <div id="root"></div>
-
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useCallback } = React;
 
-        // --- ICON SYSTEM (Native SVG) ---
-        const Icon = ({ name, size = 24, className = "" }) => {
+        // --- MODERN ICON SYSTEM ---
+        const Icon = ({ name, size = 20, className = "" }) => {
             const icons = {
-                dashboard: <path d="M3 3h7v9H3V3zm11 0h7v5h-7V3zm0 9h7v9h-7v-9zM3 16h7v5H3v-5z"/>,
-                company: <path d="M3 21h18M3 7v14M21 7v14M9 21V11h6v10M2 7l10-5 10 5M7 7h10"/>,
-                plus: <path d="M12 5v14M5 12h14"/>,
-                alert: <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/>,
-                truck: <path d="M14 18V6a2 2 0 00-2-2H4a2 2 0 00-2 2v11a1 1 0 001 1h2m15-5V2v11a1 1 0 01-1 1h-2m-10 0a3 3 0 106 0m-10 0h10m11 0a3 3 0 106 0m-6 0H2"/>,
-                wrench: <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.77 3.77z"/>,
+                dashboard: <path d="M3 3h7v7H3V3zm11 0h7v7h-7V3zm0 11h7v7h-7v-7zM3 11h7v10H3V11z" strokeWidth="2"/>,
+                company: <path d="M3 21h18M3 7v14M21 7v14M9 21V11h6v10M2 7l10-5 10 5" strokeWidth="2"/>,
+                plus: <path d="M12 5v14M5 12h14" strokeWidth="2.5"/>,
+                alert: <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01" strokeWidth="2"/>,
+                truck: <path d="M14 18V6a2 2 0 00-2-2H4a2 2 0 00-2 2v11a1 1 0 001 1h2m15-5V2v11a1 1 0 01-1 1h-2" strokeWidth="2"/>,
+                wrench: <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.77 3.77z" strokeWidth="2"/>,
                 clock: <React.Fragment><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></React.Fragment>,
-                hash: <path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/>,
+                download: <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" strokeWidth="2"/>,
+                chevronLeft: <path d="M15 18l-6-6 6-6" strokeWidth="2.5"/>,
+                x: <path d="M18 6L6 18M6 6l12 12" strokeWidth="2.5"/>,
+                check: <path d="M20 6L9 17l-5-5" strokeWidth="2.5"/>,
+                settings: (
+                    <React.Fragment>
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" strokeWidth="2"/>
+                    </React.Fragment>
+                ),
                 user: <React.Fragment><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></React.Fragment>,
-                x: <path d="M18 6L6 18M6 6l12 12"/>,
-                save: <React.Fragment><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></React.Fragment>,
-                chevronLeft: <polyline points="15 18 9 12 15 6"/>,
-                gauge: <React.Fragment><path d="M12 2a10 10 0 0110 10M12 2a10 10 0 00-10 10m20 0a10 10 0 01-10 10m-10-10a10 10 0 0010 10"/><path d="M12 12l4-4"/></React.Fragment>,
-                download: <React.Fragment><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></React.Fragment>,
-                info: <React.Fragment><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></React.Fragment>,
-                check: <polyline points="20 6 9 17 4 12"/>
+                mail: <React.Fragment><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></React.Fragment>,
+                phone: <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/>
             };
 
             return (
                 <svg 
-                    width={size} 
-                    height={size} 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2.5" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
+                    width={size} height={size} viewBox="0 0 24 24" 
+                    fill="none" stroke="currentColor" 
+                    strokeLinecap="round" strokeLinejoin="round" 
                     className={className}
                 >
                     {icons[name] || null}
@@ -154,66 +183,58 @@
             );
         };
 
-        const SERVICE_INTERVAL = 250; 
+        const SERVICE_INTERVAL_DEFAULT = 250;
 
-        // --- PDF GENERATOR FUNCTION ---
-        const downloadPDF = (company, vehicle) => {
+        const downloadVehiclePDF = (company, vehicle) => {
+            if (!window.jspdf) return;
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
-            
-            // Header
-            doc.setFillColor(2, 6, 23);
-            doc.rect(0, 0, 210, 40, 'F');
-            doc.setTextColor(234, 88, 12);
-            doc.setFontSize(22);
-            doc.text("SERVICEPRO EAM - REPORTE TÉCNICO", 15, 25);
-            
+            const hsConsumidas = (vehicle.horometroTotal || 0) - (vehicle.ultimoServiceHoras || 0);
+            const interval = vehicle.serviceInterval || SERVICE_INTERVAL_DEFAULT;
+            const progress = Math.max(0, 100 - (hsConsumidas / interval * 100));
+
+            doc.setFillColor(79, 70, 229);
+            doc.rect(0, 0, 210, 35, 'F');
             doc.setTextColor(255, 255, 255);
+            doc.setFontSize(22);
+            doc.text("EXPEDIENTE DE MANTENIMIENTO", 15, 20);
             doc.setFontSize(10);
-            doc.text(`EMPRESA: ${company.nombre}`, 15, 35);
-            doc.text(`FECHA REPORTE: ${new Date().toLocaleDateString()}`, 150, 35);
+            doc.text(`Generado: ${new Date().toLocaleDateString()}`, 15, 28);
 
-            // Asset Info
-            doc.setTextColor(0, 0, 0);
+            doc.setTextColor(30, 41, 59);
             doc.setFontSize(14);
-            doc.text(`DATOS DEL EQUIPO: ${vehicle.nombre}`, 15, 55);
+            doc.text("Información del Activo", 15, 50);
             doc.setFontSize(10);
-            doc.text(`HORÓMETRO ACTUAL: ${vehicle.horometroTotal} HS`, 15, 65);
-            doc.text(`ESTADO: ${vehicle.operativo ? 'OPERATIVO' : 'FUERA DE SERVICIO'}`, 15, 72);
+            doc.text(`Empresa: ${company.nombre}`, 15, 60);
+            doc.text(`Marca/Modelo: ${vehicle.marca || '-'} / ${vehicle.modelo || '-'}`, 15, 66);
+            doc.text(`Nro Serie: ${vehicle.serie || '-'}`, 110, 60);
+            doc.text(`Horómetro Actual: ${vehicle.horometroTotal} HS`, 110, 66);
 
-            // Table of Events
-            const rows = (vehicle.eventos || []).map(ev => [
-                ev.fecha, 
-                ev.tipo, 
-                `${ev.horas || '-'} hs`, 
-                ev.nota || ev.motivo || '-'
+            const tableData = [...(vehicle.eventos || [])].reverse().map(ev => [
+                ev.fecha, ev.tipo, `${ev.horas || '-'} HS`, ev.nota || ev.motivo || '-'
             ]);
 
             doc.autoTable({
-                startY: 85,
-                head: [['Fecha', 'Tipo Evento', 'Horómetro', 'Detalle/Insumos']],
-                body: rows,
-                theme: 'striped',
-                headStyles: { fillColor: [234, 88, 12] }
+                startY: 80,
+                head: [['Fecha', 'Tipo', 'Horómetro', 'Detalle Técnico']],
+                body: tableData,
+                headStyles: { fillColor: [79, 70, 229] }
             });
 
-            doc.save(`Reporte_${vehicle.nombre.replace(/\s/g, '_')}.pdf`);
+            doc.save(`Ficha_${vehicle.nombre.replace(/\s+/g, '_')}.pdf`);
         };
 
         const Modal = ({ title, onClose, children }) => (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-sm" onClick={onClose} />
-                <div className="relative w-full max-w-xl bg-slate-900 border-t-4 border-orange-600 rounded-lg shadow-2xl overflow-hidden">
-                    <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
-                        <div className="flex items-center gap-3">
-                            <div className="w-2 h-6 bg-orange-600"></div>
-                            <h3 className="text-xl font-black uppercase tracking-tight">{title}</h3>
-                        </div>
-                        <button onClick={onClose} className="p-2 hover:bg-red-600 rounded transition-colors">
-                            <Icon name="x" size={20} />
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200">
+                <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
+                <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div className="px-8 py-6 border-b dark:border-slate-800 flex justify-between items-center">
+                        <h3 className="text-xl font-extrabold text-slate-800 dark:text-white tracking-tight">{title}</h3>
+                        <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-400">
+                            <Icon name="x" size={24} />
                         </button>
                     </div>
-                    <div className="p-8">
+                    <div className="p-8 max-h-[80vh] overflow-y-auto">
                         {children}
                     </div>
                 </div>
@@ -221,178 +242,244 @@
         );
 
         const App = () => {
-            const [companies, setCompanies] = useState([]);
             const [activeTab, setActiveTab] = useState('dashboard');
             const [selectedCompany, setSelectedCompany] = useState(null);
+            const [darkMode, setDarkMode] = useState(false);
             const [loading, setLoading] = useState(true);
+            const [companies, setCompanies] = useState([]);
+
             const [modalType, setModalType] = useState(null);
             const [activeVehicleId, setActiveVehicleId] = useState(null);
-            const [form, setForm] = useState({ nombre: '', cuit: '', responsable: '', horometro: '', horas: '', nota: '', motivo: '' });
+            const [form, setForm] = useState({ 
+                nombre: '', cuit: '', responsable: '', mail: '', tel: '',
+                marca: '', modelo: '', serie: '', año: '', serviceInterval: 250, 
+                horometro: '', horas: '', nota: '', motivo: '' 
+            });
 
-            useEffect(() => {
+            // Handle Real-time Firebase Synchronization
+            const startSync = useCallback(() => {
                 if (!window.fb || !window.db) return;
+                
                 const q = window.fb.query(window.fb.collection(window.db, "companies"));
                 const unsubscribe = window.fb.onSnapshot(q, (snapshot) => {
-                    setCompanies(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setCompanies(data);
                     setLoading(false);
-                }, () => setLoading(false));
-                return () => unsubscribe();
+                }, (err) => {
+                    console.error("Firestore Error:", err);
+                    setLoading(false);
+                });
+                return unsubscribe;
             }, []);
+
+            useEffect(() => {
+                let unsubscribe;
+                if (window.fb && window.db) {
+                    unsubscribe = startSync();
+                } else {
+                    // Wait for the custom event if not ready yet
+                    const handleReady = () => {
+                        unsubscribe = startSync();
+                    };
+                    window.addEventListener('firebase-ready', handleReady);
+                    return () => {
+                        window.removeEventListener('firebase-ready', handleReady);
+                        if (unsubscribe) unsubscribe();
+                    };
+                }
+                return () => { if (unsubscribe) unsubscribe(); };
+            }, [startSync]);
 
             const alerts = useMemo(() => {
                 let list = [];
-                companies.forEach(c => {
-                    (c.vehiculos || []).forEach(v => {
-                        const horasUso = (v.horometroTotal || 0) - (v.ultimoServiceHoras || 0);
-                        const rest = SERVICE_INTERVAL - horasUso;
-                        if (rest < 50) list.push({ ...v, empresaNombre: c.nombre, empresaId: c.id, rest });
+                companies.forEach(emp => {
+                    (emp.vehiculos || []).forEach(veh => {
+                        const interval = veh.serviceInterval || SERVICE_INTERVAL_DEFAULT;
+                        const rest = interval - ((veh.horometroTotal || 0) - (veh.ultimoServiceHoras || 0));
+                        if (rest < 50 || !veh.operativo) {
+                            list.push({ ...veh, companyId: emp.id, companyName: emp.nombre, rest });
+                        }
                     });
                 });
-                return list.sort((a, b) => a.rest - b.rest);
+                return list.sort((a,b) => a.rest - b.rest);
             }, [companies]);
 
-            // --- FIREBASE OPERATIONS ---
             const handleAddCompany = async () => {
-                if(!form.nombre) return;
-                await window.fb.addDoc(window.fb.collection(window.db, "companies"), { 
-                    nombre: form.nombre.toUpperCase(), cuit: form.cuit || "S/D", responsable: form.responsable || "S/D", vehiculos: [] 
-                });
-                setModalType(null); setForm({});
+                if(!form.nombre || !window.fb) return;
+                try {
+                    await window.fb.addDoc(window.fb.collection(window.db, "companies"), { 
+                        nombre: form.nombre, cuit: form.cuit, responsable: form.responsable, 
+                        mail: form.mail, tel: form.tel, vehiculos: [] 
+                    });
+                    setModalType(null); 
+                    setForm({ nombre: '', cuit: '', responsable: '', mail: '', tel: '', marca: '', modelo: '', serie: '', año: '', serviceInterval: 250, horometro: '', horas: '', nota: '', motivo: '' });
+                } catch (e) { console.error("Error saving company:", e); }
             };
 
             const handleAddVehicle = async () => {
-                if(!form.nombre || !selectedCompany) return;
-                const ref = window.fb.doc(window.db, "companies", selectedCompany.id);
-                const h = parseFloat(form.horometro) || 0;
-                const v = { 
-                    id: Date.now(), nombre: form.nombre.toUpperCase(), 
-                    horometroTotal: h, ultimoServiceHoras: h, 
-                    operativo: true, eventos: [{ tipo: 'ALTA', fecha: new Date().toLocaleDateString(), horas: h }] 
-                };
-                await window.fb.updateDoc(ref, { vehiculos: window.fb.arrayUnion(v) });
-                setModalType(null); setForm({});
+                if(!form.nombre || !selectedCompany || !window.fb) return;
+                try {
+                    const ref = window.fb.doc(window.db, "companies", selectedCompany.id);
+                    const h = parseFloat(form.horometro) || 0;
+                    const v = { 
+                        id: Date.now(), 
+                        nombre: form.nombre.toUpperCase(), 
+                        marca: form.marca || 'S/M',
+                        modelo: form.modelo || 'S/M',
+                        serie: form.serie || 'S/N',
+                        año: form.año || '',
+                        serviceInterval: parseInt(form.serviceInterval) || 250,
+                        horometroTotal: h, 
+                        ultimoServiceHoras: h, 
+                        operativo: true, 
+                        eventos: [{ id: Date.now() + 1, tipo: 'ALTA', fecha: new Date().toLocaleDateString(), horas: h, nota: 'Vinculación de equipo' }] 
+                    };
+                    await window.fb.updateDoc(ref, { vehiculos: window.fb.arrayUnion(v) });
+                    setModalType(null); 
+                    setForm({ nombre: '', cuit: '', responsable: '', mail: '', tel: '', marca: '', modelo: '', serie: '', año: '', serviceInterval: 250, horometro: '', horas: '', nota: '', motivo: '' });
+                } catch(e) { console.error(e); }
             };
 
             const handleUpdateHours = async () => {
                 const nuevaLectura = parseFloat(form.horas);
-                if(isNaN(nuevaLectura) || !selectedCompany) return;
-                const company = companies.find(c => c.id === selectedCompany.id);
-                const updated = company.vehiculos.map(v => v.id === activeVehicleId ? { 
-                    ...v, 
-                    horometroTotal: nuevaLectura,
-                    eventos: [...(v.eventos || []), { tipo: 'REGISTRO', fecha: new Date().toLocaleDateString(), horas: nuevaLectura }]
-                } : v);
-                await window.fb.updateDoc(window.fb.doc(window.db, "companies", selectedCompany.id), { vehiculos: updated });
-                setModalType(null); setForm({});
+                if(isNaN(nuevaLectura) || !selectedCompany || !window.fb) return;
+                try {
+                    const company = companies.find(c => c.id === selectedCompany.id);
+                    const updated = company.vehiculos.map(v => v.id === activeVehicleId ? { 
+                        ...v, horometroTotal: nuevaLectura,
+                        eventos: [...(v.eventos || []), { id: Date.now(), tipo: 'LECTURA', fecha: new Date().toLocaleDateString(), horas: nuevaLectura }]
+                    } : v);
+                    await window.fb.updateDoc(window.fb.doc(window.db, "companies", selectedCompany.id), { vehiculos: updated });
+                    setModalType(null); setForm({ ...form, horas: '' });
+                } catch(e) { console.error(e); }
             };
 
             const handleToggleStatus = async (vehicleId, currentStatus) => {
-                if (currentStatus) { // Quieren dar de baja
-                    setActiveVehicleId(vehicleId);
-                    setModalType('downtime');
-                } else { // Quieren volver a dar de alta
+                if(!window.fb) return;
+                if(currentStatus) { 
+                    setActiveVehicleId(vehicleId); 
+                    setModalType('downtime'); 
+                } else {
                     const company = companies.find(c => c.id === selectedCompany.id);
                     const updated = company.vehiculos.map(v => v.id === vehicleId ? { 
                         ...v, operativo: true, 
-                        eventos: [...(v.eventos || []), { tipo: 'ALTA', fecha: new Date().toLocaleDateString(), nota: 'Vuelta a servicio' }]
+                        eventos: [...(v.eventos || []), { id: Date.now(), tipo: 'ALTA', fecha: new Date().toLocaleDateString(), nota: 'Vuelta a servicio' }] 
                     } : v);
                     await window.fb.updateDoc(window.fb.doc(window.db, "companies", selectedCompany.id), { vehiculos: updated });
                 }
             };
 
             const handleConfirmDowntime = async () => {
+                if(!selectedCompany || !window.fb) return;
                 const company = companies.find(c => c.id === selectedCompany.id);
                 const updated = company.vehiculos.map(v => v.id === activeVehicleId ? { 
                     ...v, operativo: false, 
-                    eventos: [...(v.eventos || []), { tipo: 'BAJA', fecha: new Date().toLocaleDateString(), motivo: form.motivo }]
+                    eventos: [...(v.eventos || []), { id: Date.now(), tipo: 'BAJA', fecha: new Date().toLocaleDateString(), motivo: form.motivo }] 
                 } : v);
                 await window.fb.updateDoc(window.fb.doc(window.db, "companies", selectedCompany.id), { vehiculos: updated });
-                setModalType(null); setForm({});
+                setModalType(null); setForm({ ...form, motivo: '' });
             };
 
-            const handleCompleteService = async () => {
+            const handleService = async () => {
+                if(!selectedCompany || !window.fb) return;
                 const company = companies.find(c => c.id === selectedCompany.id);
                 const updated = company.vehiculos.map(v => v.id === activeVehicleId ? { 
-                    ...v, 
-                    ultimoServiceHoras: v.horometroTotal,
-                    eventos: [...(v.eventos || []), { tipo: 'SERVICE', fecha: new Date().toLocaleDateString(), horas: v.horometroTotal, nota: form.nota }]
+                    ...v, ultimoServiceHoras: v.horometroTotal,
+                    eventos: [...(v.eventos || []), { id: Date.now(), tipo: 'SERVICE', fecha: new Date().toLocaleDateString(), horas: v.horometroTotal, nota: form.nota }]
                 } : v);
                 await window.fb.updateDoc(window.fb.doc(window.db, "companies", selectedCompany.id), { vehiculos: updated });
-                setModalType(null); setForm({});
+                setModalType(null); setForm({ ...form, nota: '' });
             };
 
             if (loading) return (
-                <div className="h-screen flex flex-col items-center justify-center bg-slate-950">
-                    <Icon name="wrench" size={60} className="text-orange-600 animate-spin mb-4" />
-                    <p className="mono font-bold text-orange-600 tracking-widest animate-pulse uppercase italic">Industrial Boot Sequence...</p>
+                <div className="h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
+                    <div className="flex flex-col items-center gap-6">
+                        <div className="w-14 h-14 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                        <div className="text-center space-y-1">
+                            <p className="font-extrabold text-indigo-600 tracking-[0.2em] uppercase text-sm animate-pulse">Sincronizando Sistema</p>
+                            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">ServicePro Industrial EAM</p>
+                        </div>
+                    </div>
                 </div>
             );
 
             return (
-                <div className="flex h-screen overflow-hidden">
-                    {/* SIDEBAR */}
-                    <aside className="w-24 lg:w-80 border-r-2 border-slate-800 bg-slate-950 p-6 flex flex-col gap-12 z-50">
-                        <div className="flex items-center gap-4 justify-center lg:justify-start">
-                            <div className="bg-orange-600 p-2 rounded transform rotate-45 shadow-lg shadow-orange-900/50">
-                                <Icon name="wrench" size={28} className="text-white transform -rotate-45" />
-                            </div>
-                            <div className="hidden lg:block leading-none">
-                                <h1 className="text-2xl font-black uppercase tracking-tighter italic">ServicePro</h1>
-                                <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest">Enterprise v5.0</p>
-                            </div>
-                        </div>
+                <div className={darkMode ? 'dark' : ''}>
+                    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
                         
-                        <nav className="flex flex-col gap-4 flex-1">
-                            {[
-                                { id: 'dashboard', icon: 'dashboard', label: 'Monitor Alertas' },
-                                { id: 'companies', icon: 'company', label: 'Unidades Activos' }
-                            ].map(item => (
-                                <button key={item.id} onClick={() => {setActiveTab(item.id); setSelectedCompany(null);}} 
-                                    className={`group relative p-4 rounded-lg flex items-center gap-4 transition-all ${activeTab === item.id ? 'bg-slate-900 border-l-4 border-orange-600' : 'text-slate-500 hover:bg-slate-900/50'}`}>
-                                    <Icon name={item.icon} size={22} className={activeTab === item.id ? 'text-orange-500' : ''}/>
-                                    <span className="hidden lg:block font-black uppercase text-xs tracking-widest">{item.label}</span>
-                                </button>
-                            ))}
-                        </nav>
-                        
-                        <div className="hazard-stripe h-2 w-full opacity-20"></div>
-                    </aside>
+                        {/* SIDEBAR */}
+                        <aside className="w-20 lg:w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 p-6 flex flex-col transition-all">
+                            <div className="flex items-center gap-3 mb-12 px-2">
+                                <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200 dark:shadow-none">
+                                    <Icon name="wrench" size={24}/>
+                                </div>
+                                <h1 className="hidden lg:block text-xl font-extrabold text-slate-800 dark:text-white tracking-tighter uppercase italic">ServicePro</h1>
+                            </div>
+                            
+                            <nav className="space-y-2 flex-1">
+                                {[
+                                    { id: 'dashboard', label: 'Monitor Central', icon: 'dashboard' },
+                                    { id: 'companies', label: 'Gestión Activos', icon: 'company' }
+                                ].map(item => (
+                                    <button key={item.id} onClick={() => {setActiveTab(item.id); setSelectedCompany(null);}} 
+                                        className={`w-full p-4 rounded-2xl flex items-center gap-4 font-bold text-sm transition-all ${activeTab === item.id ? 'btn-modern' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                                        <Icon name={item.icon}/> <span className="hidden lg:block">{item.label}</span>
+                                    </button>
+                                ))}
+                            </nav>
 
-                    {/* MAIN OPERATIONS */}
-                    <main className="flex-1 overflow-y-auto bg-slate-950 relative">
-                        <div className="p-8 lg:p-16 relative z-10">
+                            <button onClick={() => setDarkMode(!darkMode)} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center lg:justify-between text-slate-500 hover:text-indigo-600 transition-colors">
+                                <Icon name="settings"/> <span className="hidden lg:block text-[10px] font-black uppercase tracking-[0.2em]">{darkMode ? 'Dark Engine' : 'Light Engine'}</span>
+                            </button>
+                        </aside>
+
+                        {/* MAIN CONTENT */}
+                        <main className="flex-1 p-8 lg:p-12 overflow-y-auto relative">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/5 blur-[120px] pointer-events-none"></div>
+
                             {activeTab === 'dashboard' && (
-                                <div className="max-w-6xl mx-auto space-y-12">
-                                    <header className="flex justify-between items-end border-b-2 border-slate-800 pb-8">
-                                        <div className="space-y-1">
-                                            <h2 className="text-6xl font-black tracking-tighter uppercase italic">Monitor Central</h2>
-                                            <p className="text-orange-500 mono text-xs font-bold tracking-[0.3em]">ESTADO OPERACIONAL Y ALERTAS CRÍTICAS</p>
-                                        </div>
-                                    </header>
+                                <div className="max-w-5xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                    <div className="flex justify-between items-center">
+                                        <h2 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight italic">Panel de Alertas</h2>
+                                        <span className="bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border border-rose-100 dark:border-rose-900/50">{alerts.length} Incidencias</span>
+                                    </div>
 
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                    <div className="grid gap-4">
                                         {alerts.map((a, i) => (
-                                            <div key={i} onClick={() => { setSelectedCompany(companies.find(c => c.id === a.empresaId)); setActiveTab('companies'); }}
-                                                className={`industrial-card p-1 group flex flex-col cursor-pointer overflow-hidden ${a.rest < 20 ? 'critical-pulse' : ''}`}>
-                                                <div className="hazard-stripe h-2 w-full opacity-20"></div>
-                                                <div className="p-8 flex justify-between items-center">
-                                                    <div className="flex items-center gap-6">
-                                                        <div className={`p-4 rounded ${a.rest < 20 ? 'bg-red-600 animate-pulse' : 'bg-orange-600'}`}>
-                                                            <Icon name="alert" size={32} className="text-white"/>
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-2xl font-black tracking-tight uppercase">{a.nombre}</p>
-                                                            <p className="text-slate-500 font-bold text-[10px] tracking-widest">{a.empresaNombre}</p>
-                                                        </div>
+                                            <div key={i} className="glass-card p-6 rounded-[2rem] flex flex-col md:flex-row justify-between items-center gap-6 group">
+                                                <div className="flex items-center gap-6">
+                                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all group-hover:scale-110 ${a.operativo ? 'bg-amber-100 dark:bg-amber-900/20 text-amber-600' : 'bg-rose-100 dark:bg-rose-900/20 text-rose-600 animate-pulse'}`}>
+                                                        <Icon name="alert" size={28}/>
                                                     </div>
-                                                    <div className="lcd-display mono text-2xl font-bold">-{a.rest.toFixed(1)} HS</div>
+                                                    <div>
+                                                        <h4 className="text-lg font-bold text-slate-800 dark:text-white uppercase tracking-tight">{a.nombre}</h4>
+                                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider italic">{a.companyName}</p>
+                                                    </div>
                                                 </div>
+                                                <div className="text-right">
+                                                    {a.operativo ? (
+                                                        <div className="space-y-1">
+                                                            <p className="text-2xl font-black text-amber-600">{a.rest.toFixed(1)} HS</p>
+                                                            <p className="text-[9px] text-slate-400 uppercase tracking-widest font-bold">Límite de Ciclo</p>
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-xs font-black text-rose-600 uppercase tracking-widest border border-rose-200 dark:border-rose-900/50 px-3 py-1 rounded-lg">Fuera de Servicio</p>
+                                                    )}
+                                                </div>
+                                                <button onClick={() => { 
+                                                    const comp = companies.find(c => c.id === a.companyId);
+                                                    setSelectedCompany(comp); 
+                                                    setActiveTab('companies'); 
+                                                }} className="p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-400 hover:bg-indigo-600 hover:text-white transition-all">
+                                                    <Icon name="chevronLeft" className="rotate-180" size={18}/>
+                                                </button>
                                             </div>
                                         ))}
                                         {alerts.length === 0 && (
-                                            <div className="col-span-full py-32 flex flex-col items-center justify-center border-4 border-dashed border-slate-900 rounded-3xl opacity-20">
-                                                <Icon name="wrench" size={80} />
-                                                <p className="mt-4 font-black uppercase tracking-[0.5em] text-sm">Flota Nominal: Sin alertas críticas</p>
+                                            <div className="py-24 text-center glass-card rounded-[3rem] border-dashed">
+                                                <div className="bg-emerald-50 dark:bg-emerald-900/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto text-emerald-500 mb-6"><Icon name="check" size={32}/></div>
+                                                <p className="font-extrabold text-slate-800 dark:text-white uppercase tracking-widest text-sm italic leading-none">Estado Nominal</p>
+                                                <p className="text-slate-400 text-xs mt-2 font-semibold">Toda la flota se encuentra operativa y dentro de ciclo.</p>
                                             </div>
                                         )}
                                     </div>
@@ -400,28 +487,27 @@
                             )}
 
                             {activeTab === 'companies' && !selectedCompany && (
-                                <div className="max-w-7xl mx-auto space-y-12">
-                                    <header className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6">
-                                        <h2 className="text-6xl font-black tracking-tighter uppercase italic">Directorio</h2>
-                                        <button onClick={() => setModalType('company')} className="btn-industrial px-12 py-5 rounded shadow-xl flex items-center gap-3 text-sm">
-                                            <Icon name="plus" size={20} className="stroke-[4px]"/> Nueva Empresa
+                                <div className="max-w-6xl mx-auto space-y-10 animate-in fade-in duration-500">
+                                    <div className="flex justify-between items-end border-b-2 border-slate-200 dark:border-slate-800 pb-8">
+                                        <div className="space-y-1">
+                                            <h2 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">Directorio</h2>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em]">Cuentas Industriales</p>
+                                        </div>
+                                        <button onClick={() => setModalType('company')} className="btn-modern px-8 py-3.5 rounded-2xl flex items-center gap-2 italic shadow-lg shadow-indigo-200 dark:shadow-none">
+                                            <Icon name="plus"/> Nueva Empresa
                                         </button>
-                                    </header>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                         {companies.map(emp => (
-                                            <div key={emp.id} onClick={() => setSelectedCompany(emp)} className="industrial-card p-8 cursor-pointer flex flex-col group relative overflow-hidden">
-                                                <div className="absolute top-0 left-0 w-2 h-full bg-orange-600 opacity-20 group-hover:opacity-100 transition-opacity"></div>
-                                                <h3 className="text-3xl font-black tracking-tighter mb-4 uppercase leading-none italic">{emp.nombre}</h3>
-                                                <div className="mt-auto pt-6 border-t border-slate-800/50 flex justify-between items-center">
-                                                    <div>
-                                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">CUIT_ID</p>
-                                                        <p className="mono text-xs font-bold text-slate-300">{emp.cuit}</p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="text-3xl font-black italic">{emp.vehiculos?.length || 0}</p>
-                                                        <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest">Assets</p>
-                                                    </div>
+                                            <div key={emp.id} onClick={() => setSelectedCompany(emp)} className="glass-card p-8 cursor-pointer group flex flex-col min-h-[220px]">
+                                                <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-slate-800 flex items-center justify-center text-indigo-600 mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-inner">
+                                                    <Icon name="company" size={24}/>
+                                                </div>
+                                                <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-1 leading-tight group-hover:text-indigo-600 transition-colors uppercase italic">{emp.nombre}</h3>
+                                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">CUIT {emp.cuit}</p>
+                                                <div className="mt-auto pt-6 border-t dark:border-slate-800 flex justify-between items-center">
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">{emp.vehiculos?.length || 0} Assets Vinculados</span>
+                                                    <Icon name="chevronLeft" className="rotate-180 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all"/>
                                                 </div>
                                             </div>
                                         ))}
@@ -430,144 +516,191 @@
                             )}
 
                             {selectedCompany && (
-                                <div className="max-w-7xl mx-auto space-y-12">
-                                    <button onClick={() => setSelectedCompany(null)} className="flex items-center gap-2 mono text-xs font-bold text-slate-500 hover:text-orange-500 transition-all uppercase tracking-widest">
-                                        <Icon name="chevronLeft" size={16}/> BACK_TO_LIST
+                                <div className="max-w-6xl mx-auto space-y-10 animate-in slide-in-from-right-4 duration-500">
+                                    <button onClick={() => setSelectedCompany(null)} className="flex items-center gap-2 text-indigo-600 font-bold text-xs uppercase tracking-widest hover:translate-x-[-4px] transition-all">
+                                        <Icon name="chevronLeft"/> Back to Repository
                                     </button>
-
-                                    <div className="bg-slate-900 border-2 border-slate-800 p-10 lg:p-16 rounded shadow-inner flex flex-col lg:flex-row justify-between items-start lg:items-end gap-12">
-                                        <div className="space-y-4">
-                                            <h2 className="text-7xl font-black tracking-tighter leading-none uppercase italic">{selectedCompany.nombre}</h2>
-                                            <div className="flex flex-wrap gap-4">
-                                                <div className="px-6 py-2 bg-slate-950 border border-slate-800 rounded flex items-center gap-3 text-[10px] font-bold text-slate-500 tracking-widest uppercase"><Icon name="hash" size={14}/> {selectedCompany.cuit}</div>
-                                                <div className="px-6 py-2 bg-orange-600/10 border border-orange-600/30 rounded flex items-center gap-3 text-[10px] font-bold text-orange-500 tracking-widest uppercase italic"><Icon name="user" size={14}/> {selectedCompany.responsable}</div>
+                                    
+                                    <div className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border border-slate-200 dark:border-slate-800 flex flex-col lg:flex-row justify-between items-start lg:items-end gap-8 shadow-sm">
+                                        <div>
+                                            <h2 className="text-5xl font-extrabold text-slate-900 dark:text-white tracking-tighter mb-4 italic uppercase leading-none">{selectedCompany.nombre}</h2>
+                                            <div className="flex flex-wrap gap-3">
+                                                <span className="px-4 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-full text-[10px] font-bold uppercase tracking-widest border dark:border-slate-700 flex items-center gap-2"><Icon name="hash" size={14}/> {selectedCompany.cuit}</span>
+                                                <span className="px-4 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 rounded-full text-[10px] font-bold uppercase tracking-widest border border-indigo-100 dark:border-indigo-900/50 flex items-center gap-2"><Icon name="user" size={14}/> {selectedCompany.responsable}</span>
                                             </div>
                                         </div>
-                                        <button onClick={() => setModalType('vehicle')} className="btn-industrial px-10 py-5 rounded shadow-xl flex items-center gap-3 text-xs italic"><Icon name="plus" size={18} className="stroke-[4px]"/> Vincular Nuevo Asset</button>
+                                        <button onClick={() => setModalType('vehicle')} className="btn-modern px-8 py-4 rounded-2xl flex items-center gap-2 shadow-2xl shadow-indigo-200/50 dark:shadow-none italic text-sm">
+                                            <Icon name="plus"/> Vincular Maquinaria
+                                        </button>
                                     </div>
 
-                                    <div className="space-y-8">
+                                    <div className="grid gap-6">
                                         {(selectedCompany.vehiculos || []).map(v => {
-                                            const rest = SERVICE_INTERVAL - (v.horometroTotal - v.ultimoServiceHoras);
-                                            const perc = Math.max(0, (rest / SERVICE_INTERVAL) * 100);
+                                            const interval = v.serviceInterval || SERVICE_INTERVAL_DEFAULT;
+                                            const hsCiclo = (v.horometroTotal || 0) - (v.ultimoServiceHoras || 0);
+                                            const perc = Math.max(0, 100 - (hsCiclo / interval * 100));
                                             
                                             return (
-                                                <div key={v.id} className="industrial-card p-10 flex flex-col xl:flex-row items-center gap-12 relative overflow-hidden">
-                                                    <div className={`absolute top-0 right-0 px-10 py-2 mono text-[10px] font-bold tracking-widest uppercase ${v.operativo ? 'bg-emerald-600' : 'bg-red-600'}`}>
-                                                        {v.operativo ? 'NOMINAL' : 'TECHNICAL_STOP'}
+                                                <div key={v.id} className="glass-card p-8 flex flex-col xl:flex-row gap-10 relative overflow-hidden group">
+                                                    <div className={`absolute top-0 right-0 px-6 py-2 text-[10px] font-bold uppercase tracking-widest italic ${v.operativo ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                                        {v.operativo ? '● Nominal' : '● Inactivo'}
                                                     </div>
 
-                                                    <div className="flex-1 w-full space-y-8">
-                                                        <div className="flex items-center gap-8">
-                                                            <div className="p-6 bg-slate-950 border-2 border-slate-800 rounded-lg text-slate-600 shadow-inner">
-                                                                <Icon name="truck" size={48}/>
+                                                    <div className="flex-1 space-y-6">
+                                                        <div className="flex items-center gap-6">
+                                                            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-3xl flex items-center justify-center text-slate-400 group-hover:text-indigo-600 transition-all">
+                                                                <Icon name="truck" size={32}/>
                                                             </div>
                                                             <div>
-                                                                <h4 className="text-4xl font-black tracking-tighter uppercase italic">{v.nombre}</h4>
-                                                                <div className="flex items-center gap-4 mt-2">
-                                                                    <div className="lcd-display mono text-lg font-bold">{v.horometroTotal.toLocaleString()} HS</div>
-                                                                    <button onClick={() => downloadPDF(selectedCompany, v)} className="p-2 bg-slate-800 rounded hover:bg-orange-600 hover:text-white transition-all"><Icon name="download" size={16}/></button>
+                                                                <h4 className="text-2xl font-bold text-slate-800 dark:text-white italic tracking-tight leading-none mb-1">{v.nombre}</h4>
+                                                                <div className="flex items-center gap-3">
+                                                                    <span className="mono text-indigo-600 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-lg text-sm">{(v.horometroTotal || 0).toLocaleString()} HS</span>
+                                                                    <button onClick={() => downloadVehiclePDF(selectedCompany, v)} className="text-slate-300 hover:text-indigo-600 transition-colors" title="Exportar Expediente">
+                                                                        <Icon name="download" size={18}/>
+                                                                    </button>
                                                                 </div>
                                                             </div>
                                                         </div>
 
-                                                        <div className="space-y-4">
+                                                        <div className="space-y-3">
                                                             <div className="flex justify-between items-end">
-                                                                <div className="flex items-center gap-3"><Icon name="gauge" size={16} className="text-orange-600"/><span className="text-[10px] font-black uppercase text-slate-500 tracking-widest italic">Vida Aceite</span></div>
-                                                                <span className={`mono text-2xl font-bold ${rest < 50 ? 'text-red-500 animate-pulse' : 'text-slate-300'}`}>{perc.toFixed(1)}%</span>
+                                                                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest italic leading-none">Vida Aceite ({interval}HS)</span>
+                                                                <span className={`text-xl font-extrabold ${perc < 20 ? 'text-rose-600' : 'text-slate-800 dark:text-white'}`}>{perc.toFixed(0)}%</span>
                                                             </div>
-                                                            <div className="h-4 w-full bg-black border border-slate-800 rounded-sm overflow-hidden p-1">
-                                                                <div className={`h-full transition-all duration-1000 ${rest < 50 ? 'bg-red-600' : 'bg-orange-600'}`} style={{width: `${perc}%`}}></div>
+                                                            <div className="h-2 w-full bg-slate-100 dark:bg-slate-950 rounded-full overflow-hidden">
+                                                                <div className={`h-full transition-all duration-1000 ${perc < 20 ? 'bg-rose-600' : 'bg-indigo-600'}`} style={{width: `${perc}%`}}></div>
                                                             </div>
                                                         </div>
                                                     </div>
 
-                                                    <div className="flex flex-row xl:flex-col gap-4 w-full xl:w-72">
-                                                        <button onClick={() => { setActiveVehicleId(v.id); setModalType('log'); }} className="flex-1 p-5 bg-slate-800 hover:bg-slate-700 rounded mono text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-3 transition-all border border-slate-700">
-                                                            <Icon name="clock" size={16}/> Log_Horas
+                                                    <div className="flex flex-row xl:flex-col gap-3 w-full xl:w-64 border-t xl:border-t-0 xl:border-l border-slate-100 dark:border-slate-800 pt-6 xl:pt-0 xl:pl-6">
+                                                        <button onClick={() => { setActiveVehicleId(v.id); setModalType('log'); }} className="flex-1 p-3 bg-slate-50 dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-xs uppercase tracking-widest transition-all italic">Log Horas</button>
+                                                        <button onClick={() => handleToggleStatus(v.id, v.operativo)} className={`flex-1 p-3 rounded-xl font-bold text-xs uppercase tracking-widest border transition-all italic ${v.operativo ? 'bg-white dark:bg-slate-950 border-rose-200 dark:border-rose-900 text-rose-500 hover:bg-rose-50' : 'bg-emerald-500 text-white'}`}>
+                                                            {v.operativo ? 'Baja Técnica' : 'Alta Servicio'}
                                                         </button>
-                                                        <button onClick={() => handleToggleStatus(v.id, v.operativo)} className={`flex-1 p-5 rounded mono text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${v.operativo ? 'bg-slate-950 text-red-500 border border-red-900/40 hover:bg-red-950' : 'bg-emerald-600 text-white'}`}>
-                                                            {v.operativo ? <Icon name="alert" size={16}/> : <Icon name="check" size={16}/>} {v.operativo ? 'Informar Baja' : 'Activar Unidad'}
-                                                        </button>
-                                                        <button onClick={() => { setActiveVehicleId(v.id); setModalType('service'); }} className="flex-1 p-5 bg-orange-600 hover:bg-orange-500 rounded mono text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-3 shadow-lg shadow-orange-900/40">
-                                                            <Icon name="wrench" size={16}/> Clear_Service
-                                                        </button>
+                                                        <button onClick={() => { setActiveVehicleId(v.id); setModalType('service'); }} className="flex-1 p-3 bg-indigo-600 text-white rounded-xl font-bold text-xs uppercase tracking-widest shadow-xl shadow-indigo-200/50 dark:shadow-none italic">Clear Service</button>
                                                     </div>
                                                 </div>
                                             );
                                         })}
+                                        {(selectedCompany.vehiculos || []).length === 0 && (
+                                            <div className="py-20 text-center glass-card rounded-[3rem] border-dashed border-2">
+                                                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs italic">No hay activos vinculados a este cliente</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
-                        </div>
-                    </main>
+                        </main>
 
-                    {/* MODALES DINÁMICOS */}
-                    {modalType === 'company' && (
-                        <Modal title="Alta Razón Social" onClose={() => setModalType(null)}>
-                            <div className="space-y-6">
-                                <input className="w-full p-6 bg-slate-950 border-2 border-slate-800 rounded font-black text-xl outline-none focus:border-orange-600 transition-all uppercase italic" 
-                                    placeholder="NOMBRE EMPRESA" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} />
-                                <input className="w-full p-6 bg-slate-950 border-2 border-slate-800 rounded mono font-bold outline-none focus:border-orange-600" 
-                                    placeholder="CUIT_ID" value={form.cuit} onChange={e => setForm({...form, cuit: e.target.value})} />
-                                <input className="w-full p-6 bg-slate-950 border-2 border-slate-800 rounded font-bold outline-none focus:border-orange-600" 
-                                    placeholder="RESPONSABLE" value={form.responsable} onChange={e => setForm({...form, responsable: e.target.value})} />
-                                <button onClick={handleAddCompany} className="btn-industrial w-full p-6 rounded shadow-2xl flex items-center justify-center gap-3"><Icon name="save" size={20}/> Ejecutar Alta</button>
-                            </div>
-                        </Modal>
-                    )}
-
-                    {modalType === 'vehicle' && (
-                        <Modal title="Vinculación Activo" onClose={() => setModalType(null)}>
-                            <div className="space-y-6">
-                                <input className="w-full p-6 bg-slate-950 border-2 border-slate-800 rounded font-black text-xl outline-none focus:border-orange-600 transition-all uppercase" 
-                                    placeholder="MODELO / INTERNO EQUIPO" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} />
-                                <input className="w-full p-6 bg-slate-950 border-2 border-slate-800 rounded mono text-2xl font-bold outline-none focus:border-orange-600 text-center" type="number"
-                                    placeholder="HORÓMETRO ACTUAL" value={form.horometro} onChange={e => setForm({...form, horometro: e.target.value})} />
-                                <button onClick={handleAddVehicle} className="btn-industrial w-full p-6 rounded shadow-2xl">Confirmar Registro</button>
-                            </div>
-                        </Modal>
-                    )}
-
-                    {modalType === 'log' && (
-                        <Modal title="Lectura de Campo" onClose={() => setModalType(null)}>
-                            <div className="space-y-6">
-                                <div className="p-6 bg-black rounded text-center border border-slate-800 shadow-inner">
-                                    <p className="text-[10px] font-black uppercase text-slate-500 mb-1">Último Registro</p>
-                                    <p className="mono text-4xl font-bold text-orange-600">{companies.find(c => c.id === selectedCompany.id).vehiculos.find(v => v.id === activeVehicleId).horometroTotal.toLocaleString()} HS</p>
+                        {/* --- MODALS --- */}
+                        {modalType === 'company' && (
+                            <Modal title="Apertura de Cuenta Cliente" onClose={() => setModalType(null)}>
+                                <div className="space-y-5">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 italic">Razón Social</label>
+                                        <input className="w-full input-modern" placeholder="Ej: Constructora Alfa" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 italic tracking-widest">C.U.I.T.</label>
+                                            <input className="w-full input-modern" placeholder="30-..." value={form.cuit} onChange={e => setForm({...form, cuit: e.target.value})} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 italic">Responsable</label>
+                                            <input className="w-full input-modern" placeholder="Nombre completo" value={form.responsable} onChange={e => setForm({...form, responsable: e.target.value})} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 italic">Email</label>
+                                            <input className="w-full input-modern" type="email" placeholder="contacto@empresa.com" value={form.mail} onChange={e => setForm({...form, mail: e.target.value})} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 italic">Teléfono</label>
+                                            <input className="w-full input-modern" placeholder="+54..." value={form.tel} onChange={e => setForm({...form, tel: e.target.value})} />
+                                        </div>
+                                    </div>
+                                    <button onClick={handleAddCompany} className="btn-modern w-full p-5 rounded-3xl mt-4 italic shadow-2xl">Confirmar Registro</button>
                                 </div>
-                                <input className="w-full p-8 bg-slate-950 border-4 border-orange-600/20 rounded mono text-5xl font-bold text-center outline-none focus:border-orange-600" type="number" autoFocus
-                                    placeholder="..." value={form.horas} onChange={e => setForm({...form, horas: e.target.value})} />
-                                <button onClick={handleUpdateHours} className="btn-industrial w-full p-6 rounded shadow-2xl italic tracking-widest">Actualizar Horómetro</button>
-                            </div>
-                        </Modal>
-                    )}
+                            </Modal>
+                        )}
 
-                    {modalType === 'downtime' && (
-                        <Modal title="Informar Baja Técnica" onClose={() => setModalType(null)}>
-                            <div className="space-y-6">
-                                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest italic">Especifique el motivo de parada para el historial:</p>
-                                <textarea className="w-full p-6 bg-slate-950 border-2 border-slate-800 rounded font-bold min-h-[150px] outline-none focus:border-red-600 italic" 
-                                    placeholder="Ej: Falla en bomba hidráulica, esperando repuestos..." value={form.motivo} onChange={e => setForm({...form, motivo: e.target.value})} />
-                                <button onClick={handleConfirmDowntime} className="bg-red-600 hover:bg-red-500 w-full p-6 rounded font-black uppercase shadow-2xl transition-all">Sellar Parada Técnica</button>
-                            </div>
-                        </Modal>
-                    )}
-
-                    {modalType === 'service' && (
-                        <Modal title="Mantenimiento Finalizado" onClose={() => setModalType(null)}>
-                            <div className="space-y-6">
-                                <div className="p-10 bg-emerald-600/5 border-2 border-emerald-600/20 rounded text-center">
-                                    <Icon name="check" size={50} className="mx-auto text-emerald-500 mb-4"/>
-                                    <p className="text-[10px] font-black uppercase text-emerald-500 italic">Clear Cycle Service</p>
-                                    <p className="mono text-2xl font-bold text-slate-200 mt-2 italic">{companies.find(c => c.id === selectedCompany.id).vehiculos.find(v => v.id === activeVehicleId).horometroTotal.toLocaleString()} HS</p>
+                        {modalType === 'vehicle' && (
+                            <Modal title="Registro Técnico de Maquinaria" onClose={() => setModalType(null)}>
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                        <div className="col-span-1 sm:col-span-2 space-y-1">
+                                            <label className="text-[10px] font-bold text-indigo-600 uppercase ml-2 tracking-[0.2em] italic">Identificación (Marca / Modelo / Interno)</label>
+                                            <input className="w-full input-modern font-bold text-lg" placeholder="Ej: EXCAVADORA 05" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 italic">Marca</label>
+                                            <input className="w-full input-modern" placeholder="Ej: Caterpillar" value={form.marca} onChange={e => setForm({...form, marca: e.target.value})} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 italic">Modelo</label>
+                                            <input className="w-full input-modern" placeholder="Ej: 320D" value={form.modelo} onChange={e => setForm({...form, modelo: e.target.value})} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 italic">Nro Serie / Chasis</label>
+                                            <input className="w-full input-modern" placeholder="SN-..." value={form.serie} onChange={e => setForm({...form, serie: e.target.value})} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 italic">Año Fabricación</label>
+                                            <input className="w-full input-modern" placeholder="2020" value={form.año} onChange={e => setForm({...form, año: e.target.value})} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black text-indigo-600 uppercase ml-2 tracking-widest italic">Ciclo Service (Horas)</label>
+                                            <input className="w-full input-modern border-2 border-indigo-100 text-indigo-600" type="number" value={form.serviceInterval} onChange={e => setForm({...form, serviceInterval: e.target.value})} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 italic tracking-widest">Horómetro Actual</label>
+                                            <input className="w-full input-modern mono text-xl" type="number" placeholder="0.0" value={form.horometro} onChange={e => setForm({...form, horometro: e.target.value})} />
+                                        </div>
+                                    </div>
+                                    <button onClick={handleAddVehicle} className="btn-modern w-full p-5 rounded-3xl mt-4 italic shadow-2xl uppercase tracking-widest text-sm">Vincular a Flota Operativa</button>
                                 </div>
-                                <textarea className="w-full p-6 bg-slate-950 border-2 border-slate-800 rounded font-bold min-h-[180px] outline-none focus:border-emerald-600 italic" 
-                                    placeholder="DETALLE TÉCNICO E INSUMOS (EJ: ACEITE 15W40, FILTROS CAT 1R-1807...)" value={form.nota} onChange={e => setForm({...form, nota: e.target.value})} />
-                                <button onClick={handleCompleteService} className="bg-emerald-600 hover:bg-emerald-500 w-full p-7 rounded font-black uppercase tracking-widest shadow-2xl italic">Guardar Reporte Service</button>
-                            </div>
-                        </Modal>
-                    )}
+                            </Modal>
+                        )}
+
+                        {modalType === 'log' && (
+                            <Modal title="Lectura de Campo" onClose={() => setModalType(null)}>
+                                <div className="space-y-6 text-center">
+                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest italic leading-none">Lectura actual del tablero del activo</p>
+                                    <input className="w-full p-8 rounded-[2rem] input-modern mono text-6xl font-black text-center text-indigo-600" type="number" autoFocus placeholder="0.0" value={form.horas} onChange={e => setForm({...form, horas: e.target.value})} />
+                                    <button onClick={handleUpdateHours} className="btn-modern w-full p-5 rounded-3xl shadow-xl italic tracking-widest">Actualizar Base Datos</button>
+                                </div>
+                            </Modal>
+                        )}
+
+                        {modalType === 'downtime' && (
+                            <Modal title="Certificado de Parada Técnica" onClose={() => setModalType(null)}>
+                                <div className="space-y-5">
+                                    <div className="p-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-900/50 rounded-2xl flex items-center gap-3">
+                                        <Icon name="alert" size={18} className="text-rose-600"/>
+                                        <p className="text-[10px] font-bold text-rose-600 uppercase tracking-widest">La unidad cambiará a estado NO OPERATIVO</p>
+                                    </div>
+                                    <textarea className="w-full input-modern min-h-[150px] italic font-semibold" placeholder="Especifique el motivo de la parada (Ej: Falla en sistema hidráulico, esperando repuestos)..." value={form.motivo} onChange={e => setForm({...form, motivo: e.target.value})} />
+                                    <button onClick={handleConfirmDowntime} className="w-full p-5 bg-rose-600 hover:bg-rose-500 rounded-3xl font-bold text-white shadow-xl transition-all uppercase text-xs tracking-widest italic">Informar Baja de Servicio</button>
+                                </div>
+                            </Modal>
+                        )}
+
+                        {modalType === 'service' && (
+                            <Modal title="Certificación de Mantenimiento" onClose={() => setModalType(null)}>
+                                <div className="space-y-5">
+                                    <div className="p-6 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 rounded-3xl text-center">
+                                        <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-2 italic leading-none">Reset de Ciclo de Aceite</p>
+                                        <p className="mono text-3xl font-black text-emerald-700 dark:text-emerald-300 italic leading-none">
+                                            HS {selectedCompany?.vehiculos?.find(v => v.id === activeVehicleId)?.horometroTotal?.toLocaleString() || '0'}
+                                        </p>
+                                    </div>
+                                    <textarea className="w-full input-modern min-h-[150px] italic font-semibold text-sm" placeholder="Detalle de insumos (Filtros, Marcas, Tipo Aceite) y tareas técnicas realizadas..." value={form.nota} onChange={e => setForm({...form, nota: e.target.value})} />
+                                    <button onClick={handleService} className="btn-modern w-full p-5 rounded-3xl italic shadow-2xl tracking-widest leading-none">Sellar Reporte de Service</button>
+                                </div>
+                            </Modal>
+                        )}
+
+                    </div>
                 </div>
             );
         };
