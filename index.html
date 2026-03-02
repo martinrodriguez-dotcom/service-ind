@@ -2,21 +2,19 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>ServicePro EAM | Gestión Industrial</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ServicePro EAM</title>
     
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, addDoc, updateDoc, doc, arrayUnion, query } 
-            from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-        // CONFIGURACIÓN DE TU FIREBASE (service-ind)
+        import { getFirestore, collection, onSnapshot, addDoc, updateDoc, doc, arrayUnion, query } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        
         const firebaseConfig = {
             apiKey: "AIzaSyA_RnRMxTrKDcNtyLfPRxHxVpqnKhTFemQ",
             authDomain: "service-ind.firebaseapp.com",
@@ -25,149 +23,17 @@
             messagingSenderId: "659187337339",
             appId: "1:659187337339:web:ad95e28d129883de4dfade"
         };
-
         const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-
-        // EXPONER A WINDOW PARA QUE BABEL PUEDA VERLOS
-        window.db = db;
+        window.db = getFirestore(app);
         window.fb = { collection, onSnapshot, addDoc, updateDoc, doc, arrayUnion, query };
     </script>
-
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { margin: 0; font-family: 'Inter', sans-serif; background-color: #020617; color: white; }
-        .guantes-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 2rem; }
-    </style>
 </head>
-<body>
+<body class="bg-slate-950">
     <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
-        const { 
-            LayoutDashboard, Building2, Plus, AlertTriangle, Truck, 
-            CheckCircle2, Wrench, Activity, ChevronLeft, Clock, Hash 
-        } = lucide;
-
-        // --- COMPONENTE PRINCIPAL ---
-        const App = () => {
-            const [companies, setCompanies] = useState([]);
-            const [activeTab, setActiveTab] = useState('dashboard');
-            const [selectedCompany, setSelectedCompany] = useState(null);
-            const [loading, setLoading] = useState(true);
-
-            // Suscripción a Firebase
-            useEffect(() => {
-                const q = window.fb.query(window.fb.collection(window.db, "companies"));
-                const unsubscribe = window.fb.onSnapshot(q, (snapshot) => {
-                    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    setCompanies(data);
-                    setLoading(false);
-                });
-                return () => unsubscribe();
-            }, []);
-
-            // Lógica de Alertas
-            const alerts = useMemo(() => {
-                let all = [];
-                companies.forEach(c => {
-                    (c.vehiculos || []).forEach(v => {
-                        const hsRestantes = 250 - (v.horometroTotal - v.ultimoServiceHoras);
-                        if (hsRestantes < 50) {
-                            all.push({ ...v, empresaNombre: c.nombre, hsRestantes });
-                        }
-                    });
-                });
-                return all.sort((a, b) => a.hsRestantes - b.hsRestantes);
-            }, [companies]);
-
-            if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl animate-pulse">CARGANDO SISTEMA...</div>;
-
-            return (
-                <div className="flex min-h-screen">
-                    {/* SIDEBAR */}
-                    <aside className="w-20 lg:w-72 border-r border-slate-900 bg-slate-950 p-6 flex flex-col gap-8">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-orange-600 p-2 rounded-xl text-white"><Wrench size={24} /></div>
-                            <h1 className="hidden lg:block text-xl font-black uppercase tracking-tighter">ServicePro</h1>
-                        </div>
-                        <nav className="flex flex-col gap-4">
-                            <button onClick={() => {setActiveTab('dashboard'); setSelectedCompany(null);}} 
-                                className={`p-4 rounded-2xl flex items-center gap-4 font-bold ${activeTab === 'dashboard' ? 'bg-orange-600' : 'text-slate-500'}`}>
-                                <LayoutDashboard /> <span className="hidden lg:block">Dashboard</span>
-                            </button>
-                            <button onClick={() => {setActiveTab('companies'); setSelectedCompany(null);}} 
-                                className={`p-4 rounded-2xl flex items-center gap-4 font-bold ${activeTab === 'companies' ? 'bg-orange-600' : 'text-slate-500'}`}>
-                                <Building2 /> <span className="hidden lg:block">Empresas</span>
-                            </button>
-                        </nav>
-                    </aside>
-
-                    {/* CONTENIDO */}
-                    <main className="flex-1 p-8 overflow-y-auto">
-                        {activeTab === 'dashboard' && (
-                            <div className="max-w-4xl mx-auto space-y-8">
-                                <h2 className="text-5xl font-black tracking-tighter">Alertas Críticas</h2>
-                                <div className="grid gap-4">
-                                    {alerts.map((a, i) => (
-                                        <div key={i} className="guantes-card p-6 flex justify-between items-center border-l-8 border-l-orange-600">
-                                            <div>
-                                                <p className="text-2xl font-black">{a.nombre}</p>
-                                                <p className="text-slate-500 font-bold uppercase text-xs">{a.empresaNombre}</p>
-                                            </div>
-                                            <div className="text-right font-black text-2xl text-orange-500">{a.hsRestantes.toFixed(0)} HS</div>
-                                        </div>
-                                    ))}
-                                    {alerts.length === 0 && <p className="text-slate-600 font-bold italic">No hay alertas pendientes.</p>}
-                                </div>
-                            </div>
-                        )}
-
-                        {activeTab === 'companies' && !selectedCompany && (
-                            <div className="max-w-5xl mx-auto space-y-8">
-                                <h2 className="text-5xl font-black tracking-tighter">Empresas</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {companies.map(emp => (
-                                        <button key={emp.id} onClick={() => setSelectedCompany(emp)} 
-                                            className="guantes-card p-8 text-left hover:border-orange-600 transition-all group">
-                                            <h3 className="text-3xl font-black group-hover:text-orange-500">{emp.nombre}</h3>
-                                            <p className="text-slate-500 font-bold text-xs uppercase">Equipos: {emp.vehiculos?.length || 0}</p>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {selectedCompany && (
-                            <div className="max-w-5xl mx-auto space-y-8 animate-in slide-in-from-right">
-                                <button onClick={() => setSelectedCompany(null)} className="text-slate-500 font-black flex items-center gap-2 uppercase text-xs tracking-widest"><ChevronLeft/> Volver</button>
-                                <h2 className="text-6xl font-black">{selectedCompany.nombre}</h2>
-                                <div className="space-y-4">
-                                    {(selectedCompany.vehiculos || []).map(v => (
-                                        <div key={v.id} className="guantes-card p-6 flex justify-between items-center">
-                                            <div className="flex items-center gap-4">
-                                                <div className="p-3 bg-slate-800 rounded-xl"><Truck/></div>
-                                                <div>
-                                                    <p className="text-xl font-black">{v.nombre}</p>
-                                                    <p className="text-orange-500 font-bold">{v.horometroTotal} hs acumuladas</p>
-                                                </div>
-                                            </div>
-                                            <div className="flex gap-2 text-xs font-black uppercase tracking-tighter px-4 py-2 rounded-full bg-slate-800">
-                                                {v.operativo ? 'En Marcha' : 'Parado'}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </main>
-                </div>
-            );
-        };
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
+    <script type="text/babel" src="src/services/firestoreService.js"></script>
+    <script type="text/babel" src="src/components/Forms.js"></script>
+    <script type="text/babel" src="src/App.js"></script>
+    <script type="text/babel" src="src/main.js"></script>
 </body>
 </html>
