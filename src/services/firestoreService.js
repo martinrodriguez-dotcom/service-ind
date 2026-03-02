@@ -1,4 +1,6 @@
-import { db } from "../firebase";
+// Accedemos a las funciones de Firebase desde el SDK cargado en el index.html
+// Nota: Importamos 'db' desde nuestro archivo de configuración local
+import { db } from "../firebase.js";
 import { 
   collection, 
   addDoc, 
@@ -7,25 +9,29 @@ import {
   onSnapshot, 
   query, 
   arrayUnion 
-} from "firebase/firestore";
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 /**
  * SERVICIOS DE FIRESTORE
- * Funciones para CRUD de Empresas, Vehículos y Eventos
+ * Adaptado para despliegue directo sin consola.
  */
 
 const COLLECTION_NAME = "companies";
 
 // Suscripción en tiempo real a las empresas
 export const subscribeToCompanies = (callback) => {
-  const q = query(collection(db, COLLECTION_NAME));
-  return onSnapshot(q, (snapshot) => {
-    const companies = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-    callback(companies);
-  });
+  try {
+    const q = query(collection(db, COLLECTION_NAME));
+    return onSnapshot(q, (snapshot) => {
+      const companies = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      callback(companies);
+    });
+  } catch (error) {
+    console.error("Error en suscripción:", error);
+  }
 };
 
 // Crear una nueva empresa
@@ -38,6 +44,7 @@ export const addCompany = async (companyData) => {
     });
   } catch (error) {
     console.error("Error al añadir empresa:", error);
+    alert("Error al guardar en base de datos. Verifica la consola.");
   }
 };
 
@@ -47,7 +54,7 @@ export const addVehicleToCompany = async (companyId, vehicleData) => {
   const initialHoras = parseFloat(vehicleData.horometroInicial);
   
   const newVehicle = {
-    id: Date.now(), // ID interno para el array
+    id: Date.now(), 
     nombre: vehicleData.nombre,
     fechaAlta: new Date().toLocaleDateString(),
     horometroTotal: initialHoras,
