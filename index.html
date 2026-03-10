@@ -24,7 +24,7 @@
         :root {
             --primary-yellow: #fbbf24;
             --primary-dark: #0f172a;
-            --bg-app: #f1f5f9;
+            --bg-app: #f8fafc;
         }
 
         body { 
@@ -41,42 +41,40 @@
         .glass-card {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
-            border-radius: 1.5rem;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+            border-radius: 2rem;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .glass-card:hover {
             transform: translateY(-4px);
-            box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.08);
+            border-color: var(--primary-yellow);
         }
 
         .btn-premium {
             background: var(--primary-dark);
             color: white;
             font-weight: 700;
-            border-radius: 1rem;
+            border-radius: 1.25rem;
             transition: all 0.2s;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
         .btn-premium:hover:not(:disabled) {
             background: #1e293b;
-            transform: scale(1.02);
+            transform: translateY(-1px);
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        }
-
-        .btn-premium:active:not(:disabled) {
-            transform: scale(0.98);
         }
 
         .btn-accent {
             background: var(--primary-yellow);
             color: #000000;
             font-weight: 800;
-            border-radius: 1rem;
+            border-radius: 1.25rem;
             box-shadow: 0 4px 15px -3px rgba(251, 191, 36, 0.3);
+            transition: all 0.2s;
         }
 
         .btn-accent:hover:not(:disabled) {
@@ -86,9 +84,9 @@
 
         .input-premium {
             background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 1rem;
-            padding: 0.85rem 1.25rem;
+            border: 2px solid #f1f5f9;
+            border-radius: 1.25rem;
+            padding: 1rem 1.5rem;
             font-weight: 600;
             transition: all 0.2s;
         }
@@ -102,14 +100,14 @@
         .fuel-tank-container {
             width: 150px;
             height: 75px;
-            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05));
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.06));
         }
 
-        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
 
         @media (max-width: 1024px) {
             .sidebar-mobile {
@@ -117,10 +115,27 @@
                 left: 0; top: 0; height: 100%;
                 z-index: 100;
                 transform: translateX(-100%);
-                transition: transform 0.3s ease;
+                transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
                 background: white;
+                box-shadow: 20px 0 50px rgba(0,0,0,0.1);
             }
             .sidebar-mobile.open { transform: translateX(0); }
+        }
+
+        .history-table th {
+            text-align: left;
+            padding: 14px 20px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #94a3b8;
+            font-weight: 800;
+        }
+        .history-table td {
+            padding: 16px 20px;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 13px;
+            font-weight: 600;
         }
     </style>
 </head>
@@ -150,20 +165,20 @@
             window.db = db;
             window.auth = auth;
             window.fb = { collection, onSnapshot, addDoc, updateDoc, doc, arrayUnion, query, setDoc, getDoc, deleteDoc, signInAnonymously, onAuthStateChanged, signInWithCustomToken };
-            window.appId = "bnd-premium-v1"; 
+            window.appId = "bnd-premium-v3-stable"; 
             
             const initAuth = async () => {
                 try {
                     await signInAnonymously(auth);
                 } catch (e) {
-                    console.warn("Auth Fallback");
+                    console.warn("Auth Fallback Active");
                 }
                 window.dispatchEvent(new Event('firebase-ready'));
             };
             initAuth();
             
         } catch (error) {
-            console.error("Firebase Error:", error);
+            console.error("Error crítico de Firebase:", error);
         }
     </script>
 
@@ -192,6 +207,7 @@
                 menu: <path d="M3 12h18M3 6h18M3 18h18" strokeWidth="2.5" />,
                 user: <React.Fragment><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></React.Fragment>,
                 chart: <path d="M18 20V10M12 20V4M6 20v-6" strokeWidth="2" />,
+                qr: <React.Fragment><rect x="3" y="3" width="7" height="7" strokeWidth="2"/><rect x="14" y="3" width="7" height="7" strokeWidth="2"/><rect x="3" y="14" width="7" height="7" strokeWidth="2"/><path d="M14 14h3v3h-3v-3zm3 3h3v3h-3v-3zm-3 3h3v-3" strokeWidth="2"/></React.Fragment>,
                 chevronDown: <polyline points="6 9 12 15 18 9" strokeWidth="2" />,
                 settings: <React.Fragment><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 000.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" strokeWidth="2"/></React.Fragment>
             };
@@ -203,13 +219,13 @@
         // --- COMPONENTE MODAL ---
         const Modal = ({ title, onClose, children }) => (
             <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 animate-fade-in">
-                <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onClick={onClose} />
-                <div className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden">
+                <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={onClose} />
+                <div className="relative w-full max-w-2xl bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-white/20">
                     <div className="px-8 py-6 border-b flex justify-between items-center bg-slate-50/50">
-                        <h3 className="text-xl font-extrabold text-slate-800 tracking-tight uppercase leading-none">{title}</h3>
+                        <h3 className="text-xl font-extrabold text-slate-800 tracking-tight uppercase italic leading-none">{title}</h3>
                         <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-all text-slate-400"><Icon name="x" size={24} /></button>
                     </div>
-                    <div className="p-8 max-h-[85vh] overflow-y-auto">{children}</div>
+                    <div className="p-10 max-h-[85vh] overflow-y-auto leading-relaxed">{children}</div>
                 </div>
             </div>
         );
@@ -227,19 +243,20 @@
                         <svg viewBox="0 0 140 80" className="w-full h-full">
                             <defs>
                                 <linearGradient id="tankGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                                    <stop offset="0%" stopColor={color} stopOpacity="0.8" />
+                                    <stop offset="0%" stopColor={color} stopOpacity="0.7" />
                                     <stop offset="100%" stopColor={color} stopOpacity="1" />
                                 </linearGradient>
                             </defs>
-                            <rect x="10" y="10" width="120" height="60" rx="30" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="2" />
+                            <rect x="10" y="10" width="120" height="60" rx="30" fill="#f1f5f9" stroke="#e2e8f0" strokeWidth="2" />
                             <clipPath id="tankClip">
                                 <rect x="10" y={70 - (perc * 0.6)} width="120" height={perc * 0.6} rx="2" />
                             </clipPath>
                             <rect x="10" y="10" width="120" height="60" rx="30" fill="url(#tankGrad)" clipPath="url(#tankClip)" />
-                            <text x="70" y="45" textAnchor="middle" className="font-bold text-[14px] mono" fill={perc < 45 ? "#64748b" : "white"}>{perc.toFixed(0)}%</text>
+                            <text x="70" y="45" textAnchor="middle" className="font-black text-[14px] mono" fill={perc < 45 ? "#64748b" : "white"}>{perc.toFixed(0)}%</text>
+                            <text x="70" y="85" textAnchor="middle" className="font-bold text-[8px] uppercase" fill="#94a3b8">BND Diésel</text>
                         </svg>
                     </div>
-                    <span className="text-[10px] font-extrabold uppercase text-slate-400 tracking-widest italic">{Math.floor(current)} L restantes</span>
+                    <span className="text-[10px] font-black uppercase text-slate-400 italic">{Math.floor(current).toLocaleString()} L restantes</span>
                 </div>
             );
         };
@@ -260,8 +277,8 @@
 
             const [bndSettings, setBndSettings] = useState({
                 name: "BND EQUIPOS S.A.",
-                description: "Mantenimiento Industrial & Gestión de Activos",
-                address: "Parque Industrial, Nave 12",
+                description: "Mantenimiento Industrial & Gestión de Activos Críticos",
+                address: "Parque Logístico BND, Nave 4",
                 phone: "+54 9 11 5555-0101",
                 email: "tecnica@bndequipos.com",
                 web: "www.bndequipos.com"
@@ -271,11 +288,10 @@
                 nombre: '', cuit: '', responsable: '', mail: '', tel: '',
                 marca: '', modelo: '', serie: '', patente: '', año: '', serviceInterval: 250, 
                 horometro: '', horas: '', litros: '', nota: '', motivo: '', tankCapacity: 1000,
-                insumos: [], insumoManual: '', fecha: new Date().toISOString().split('T')[0],
-                filterStartDate: '', filterEndDate: ''
+                insumos: [], insumoManual: '', fecha: new Date().toISOString().split('T')[0]
             });
 
-            // --- SINCRONIZACIÓN ---
+            // --- SINCRONIZACIÓN FIREBASE ---
             useEffect(() => {
                 const initSync = () => {
                     if (!window.fb || !window.auth) return;
@@ -298,7 +314,7 @@
                 else window.addEventListener('firebase-ready', initSync);
             }, []);
 
-            // --- MEMOIZACIÓN DE DATOS ---
+            // --- LÓGICA DE ALERTAS ---
             const alerts = useMemo(() => {
                 let list = [];
                 companies.forEach(emp => {
@@ -311,7 +327,7 @@
                         if (rest < 50 && veh.operativo) list.push({ type: 'MAINTENANCE', ...veh, companyId: emp.id, companyName: emp.nombre, rest });
                     });
                 });
-                return list;
+                return list.sort((a,b) => (a.type === 'BREAKDOWN' ? -1 : 1));
             }, [companies]);
 
             const projections = useMemo(() => {
@@ -339,7 +355,7 @@
 
             const activeCompany = useMemo(() => companies.find(c => c.id === selectedCompanyId), [companies, selectedCompanyId]);
 
-            // --- GRÁFICO (CHART.JS) ---
+            // --- GRÁFICOS (CHART.JS) ---
             useEffect(() => {
                 if (modalType === 'details' && activeCompany && chartRef.current) {
                     const ctx = chartRef.current.getContext('2d');
@@ -358,9 +374,9 @@
                         data: {
                             labels: last6Months.map(m => ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"][parseInt(m.split('-')[1])-1]),
                             datasets: [{ 
-                                label: 'Litros', data: dataPoints, 
-                                borderColor: '#fbbf24', backgroundColor: 'rgba(251, 191, 36, 0.1)', 
-                                fill: true, tension: 0.4, borderWidth: 4, pointRadius: 6, pointBackgroundColor: '#000'
+                                label: 'Consumo Mensual (L)', data: dataPoints, 
+                                borderColor: '#fbbf24', backgroundColor: 'rgba(251, 191, 36, 0.05)', 
+                                fill: true, tension: 0.4, borderWidth: 4, pointRadius: 5, pointBackgroundColor: '#0f172a'
                             }]
                         },
                         options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
@@ -383,7 +399,7 @@
                     setActiveVehicleId(vId); 
                     setModalType('downtime'); 
                 } else {
-                    const updated = activeCompany.vehiculos.map(v => v.id === vId ? { ...v, operativo: true, eventos: [...(v.eventos || []), { id: Date.now(), tipo: 'ALTA', fecha: new Date().toLocaleDateString(), nota: 'Reactivación' }] } : v);
+                    const updated = activeCompany.vehiculos.map(v => v.id === vId ? { ...v, operativo: true, eventos: [...(v.eventos || []), { id: Date.now(), tipo: 'ALTA', fecha: new Date().toLocaleDateString(), nota: 'Reactivación de Unidad' }] } : v);
                     await window.fb.updateDoc(window.fb.doc(window.db, "artifacts", window.appId, "public", "data", "companies", activeCompany.id), { vehiculos: updated });
                 }
             };
@@ -426,10 +442,15 @@
             const downloadPDF = (company, vehicle) => {
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
-                doc.setFillColor(30, 41, 59); doc.rect(0, 0, 210, 45, 'F');
+                doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 45, 'F');
                 doc.setTextColor(255, 255, 255);
-                doc.setFontSize(26); doc.text(bndSettings.name.toUpperCase(), 15, 22);
-                doc.setFontSize(14); doc.text("REPORTE TÉCNICO DE UNIDAD", 15, 60);
+                doc.setFontSize(24); doc.text(bndSettings.name.toUpperCase(), 15, 25);
+                doc.setFontSize(10); doc.text(bndSettings.description, 15, 33);
+                doc.setFillColor(251, 191, 36); doc.rect(0, 45, 210, 2, 'F');
+                doc.setTextColor(15, 23, 42); doc.setFontSize(14); doc.text("REPORTE TÉCNICO DE UNIDAD", 15, 60);
+                doc.setFontSize(10);
+                doc.text(`Unidad: ${vehicle.nombre} | Patente: ${vehicle.patente || '---'}`, 15, 75);
+                doc.text(`Horas Totales: ${vehicle.horometroTotal} HS`, 15, 82);
                 doc.save(`Expediente_${vehicle.nombre}.pdf`);
             };
 
@@ -448,7 +469,7 @@
 
             const generateQR = (vId) => {
                 const div = document.getElementById(`qr-container-${vId}`); if(!div) return; div.innerHTML = "";
-                new QRCode(div, { text: `sp-asset:${selectedCompanyId}:${vId}`, width: 200, height: 200, colorDark : "#000", colorLight : "#fff" });
+                new QRCode(div, { text: `sp-asset:${selectedCompanyId}:${vId}`, width: 200, height: 200, colorDark : "#0f172a", colorLight : "#ffffff" });
             };
 
             const toggleHistory = (id) => {
@@ -464,16 +485,16 @@
                     <aside className={`sidebar-mobile lg:w-72 bg-white border-r border-slate-200 p-8 flex flex-col lg:static ${sidebarOpen ? 'open' : ''}`}>
                         <div className="flex items-center justify-between lg:justify-start gap-4 mb-14">
                             <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 bg-yellow-400 rounded-2xl flex items-center justify-center shadow-lg shadow-yellow-100"><Icon name="wrench" size={26} className="text-black"/></div>
-                                <h1 className="text-xl font-extrabold uppercase italic tracking-tighter">BND Pro</h1>
+                                <div className="w-12 h-12 bg-yellow-400 rounded-3xl flex items-center justify-center shadow-lg shadow-yellow-100"><Icon name="wrench" size={26} className="text-black"/></div>
+                                <h1 className="text-2xl font-extrabold uppercase italic tracking-tighter">BND Pro</h1>
                             </div>
                             <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-slate-400"><Icon name="x" size={24}/></button>
                         </div>
                         
                         <nav className="space-y-4 flex-1">
                             {[
-                                { id: 'dashboard', label: 'Panel Control', icon: 'dashboard' },
-                                { id: 'companies', label: 'Clientes', icon: 'company' },
+                                { id: 'dashboard', label: 'Centro Control', icon: 'dashboard' },
+                                { id: 'companies', label: 'Directorio', icon: 'company' },
                                 { id: 'calendar', label: 'Proyecciones', icon: 'calendar' },
                                 { id: 'config', label: 'Ajustes', icon: 'settings' }
                             ].map(item => (
@@ -492,44 +513,44 @@
                     </aside>
 
                     <main className="flex-1 p-6 sm:p-10 lg:p-14 overflow-y-auto relative">
-                        <header className="lg:hidden absolute top-0 left-0 w-full h-20 flex items-center justify-between px-8 bg-white/80 backdrop-blur-md z-40 border-b">
-                             <button onClick={() => setSidebarOpen(true)} className="p-2 bg-slate-100 rounded-xl"><Icon name="menu" size={24}/></button>
-                             <h1 className="text-lg font-black uppercase tracking-widest italic">BND EQUIPOS</h1>
-                             <div className="w-10 h-10 rounded-xl bg-yellow-400 flex items-center justify-center shadow-md shadow-yellow-100"><Icon name="wrench" size={20}/></div>
+                        <header className="lg:hidden absolute top-0 left-0 w-full h-24 flex items-center justify-between px-10 bg-white/80 backdrop-blur-xl z-40 border-b">
+                             <button onClick={() => setSidebarOpen(true)} className="p-3 bg-slate-100 rounded-2xl shadow-inner"><Icon name="menu" size={24}/></button>
+                             <h1 className="text-xl font-black uppercase tracking-tighter italic">BND EQUIPOS</h1>
+                             <div className="w-12 h-12 rounded-2xl bg-yellow-400 flex items-center justify-center shadow-lg shadow-yellow-100"><Icon name="wrench" size={24} className="text-black"/></div>
                         </header>
 
                         {activeTab === 'dashboard' && (
-                            <div className="max-w-5xl mx-auto space-y-12 animate-fade-in">
+                            <div className="max-w-5xl mx-auto space-y-12 animate-fade-in pt-10 lg:pt-0">
                                 <div className="flex justify-between items-end">
-                                    <h2 className="text-4xl font-extrabold tracking-tighter uppercase italic">Alertas del Sistema</h2>
-                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Estado en tiempo real</p>
+                                    <h2 className="text-5xl font-black tracking-tighter uppercase italic text-slate-900">Métricas Críticas</h2>
+                                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest leading-none">Estado de Flota en Tiempo Real</p>
                                 </div>
                                 <div className="grid gap-6">
                                     {alerts.map((a, i) => (
-                                        <div key={i} className={`glass-card p-8 flex flex-col md:flex-row justify-between items-center gap-6 border-l-[12px] ${a.type === 'BREAKDOWN' ? 'border-l-red-500 bg-red-50/10' : a.type === 'FUEL' ? 'border-l-amber-500 bg-amber-50/10' : 'border-l-yellow-400'}`}>
-                                            <div className="flex items-center gap-8 w-full">
-                                                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${a.type === 'BREAKDOWN' ? 'bg-red-500 text-white animate-pulse' : 'bg-yellow-400 text-black'}`}>
-                                                    <Icon name={a.type === 'FUEL' ? 'fuel' : 'alert'} size={32}/>
+                                        <div key={i} className={`glass-card p-10 flex flex-col md:flex-row justify-between items-center gap-8 border-l-[16px] ${a.type === 'BREAKDOWN' ? 'border-l-red-500 bg-red-50/20' : a.type === 'FUEL' ? 'border-l-amber-500 bg-amber-50/20' : 'border-l-yellow-400'}`}>
+                                            <div className="flex items-center gap-10 w-full">
+                                                <div className={`w-20 h-20 rounded-[2rem] flex items-center justify-center ${a.type === 'BREAKDOWN' ? 'bg-red-500 text-white animate-pulse' : 'bg-yellow-400 text-black shadow-lg shadow-yellow-100'}`}>
+                                                    <Icon name={a.type === 'FUEL' ? 'fuel' : 'alert'} size={40}/>
                                                 </div>
                                                 <div>
-                                                    <h4 className="text-xl font-black uppercase italic leading-none mb-2">{a.nombre || (a.type === 'FUEL' ? 'STOCK CRÍTICO' : 'AVISO')}</h4>
+                                                    <h4 className="text-2xl font-black uppercase italic leading-none mb-3 tracking-tight">{a.nombre || (a.type === 'FUEL' ? 'DIÉSEL CRÍTICO' : 'REPORTE')}</h4>
                                                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{a.companyName}</p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-10">
                                                 <div className="text-right">
-                                                    {a.type === 'MAINTENANCE' && <p className="text-2xl font-black text-slate-900">-{a.rest?.toFixed(1)} HS</p>}
-                                                    {a.type === 'BREAKDOWN' && <p className="text-xs font-black text-red-600 uppercase">Sin Operatividad</p>}
-                                                    {a.type === 'FUEL' && <p className="text-xs font-black text-amber-600 uppercase">Nivel: {a.value}%</p>}
+                                                    {a.type === 'MAINTENANCE' && <p className="text-3xl font-black text-slate-900">-{a.rest?.toFixed(1)} HS</p>}
+                                                    {a.type === 'BREAKDOWN' && <p className="text-sm font-black text-red-600 uppercase tracking-widest">Fuera de Servicio</p>}
+                                                    {a.type === 'FUEL' && <p className="text-sm font-black text-amber-600 uppercase tracking-widest">Stock: {a.value}%</p>}
                                                 </div>
-                                                <button onClick={() => { setSelectedCompanyId(a.companyId); setActiveTab('companies'); }} className="btn-premium px-8 py-4 text-xs">Gestionar</button>
+                                                <button onClick={() => { setSelectedCompanyId(a.companyId); setActiveTab('companies'); }} className="btn-premium px-10 py-5 text-xs uppercase shadow-2xl">Gestionar</button>
                                             </div>
                                         </div>
                                     ))}
                                     {alerts.length === 0 && (
-                                        <div className="py-32 text-center glass-card border-dashed border-2 bg-slate-50/30">
-                                            <Icon name="check" size={48} className="mx-auto text-emerald-500 mb-6 opacity-30"/>
-                                            <p className="font-black uppercase tracking-widest text-slate-300">Sistema en Condiciones Nominales</p>
+                                        <div className="py-40 text-center glass-card border-dashed border-4 border-slate-100 bg-slate-50/30">
+                                            <Icon name="check" size={64} className="mx-auto text-emerald-400 mb-8 opacity-40"/>
+                                            <p className="font-black uppercase tracking-[0.2em] text-slate-300 text-sm">Flota en Condiciones de Operatividad Máxima</p>
                                         </div>
                                     )}
                                 </div>
@@ -537,23 +558,23 @@
                         )}
 
                         {activeTab === 'companies' && !activeCompany && (
-                            <div className="max-w-6xl mx-auto space-y-12 animate-fade-in pb-20">
-                                <div className="flex justify-between items-end border-b-2 pb-10">
-                                    <h2 className="text-5xl font-black uppercase italic tracking-tighter">Directorio</h2>
-                                    <button onClick={() => setModalType('company')} className="btn-accent px-10 py-5 text-sm uppercase">Nuevo Cliente</button>
+                            <div className="max-w-6xl mx-auto space-y-14 animate-fade-in pb-20 pt-10 lg:pt-0">
+                                <div className="flex justify-between items-end border-b-4 border-slate-100 pb-12">
+                                    <h2 className="text-6xl font-black uppercase italic tracking-tighter">Empresas</h2>
+                                    <button onClick={() => setModalType('company')} className="btn-accent px-12 py-6 text-sm uppercase">Nuevo Registro</button>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-10">
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-12">
                                     {companies.map(emp => (
-                                        <div key={emp.id} className="glass-card p-10 flex flex-col min-h-[380px]">
-                                            <div className="flex justify-between items-start mb-10">
-                                                <div className="w-16 h-16 bg-slate-900 rounded-3xl flex items-center justify-center text-yellow-400 shadow-xl shadow-slate-200"><Icon name="company" size={28}/></div>
+                                        <div key={emp.id} className="glass-card p-12 flex flex-col min-h-[420px]">
+                                            <div className="flex justify-between items-start mb-12">
+                                                <div className="w-20 h-20 bg-slate-900 rounded-[2rem] flex items-center justify-center text-yellow-400 shadow-2xl shadow-slate-300"><Icon name="company" size={36}/></div>
                                                 <FuelTankCapsule capacity={emp.tankCapacity || 1000} current={emp.currentFuel || 0} />
                                             </div>
-                                            <h3 className="text-3xl font-black uppercase italic mb-2 truncate leading-tight tracking-tight">{emp.nombre}</h3>
-                                            <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-10">CUIT: {emp.cuit}</p>
+                                            <h3 className="text-4xl font-black uppercase italic mb-2 tracking-tighter leading-none">{emp.nombre}</h3>
+                                            <p className="text-xs font-black text-slate-300 uppercase tracking-[0.15em] mb-12 leading-none">CUIT: {emp.cuit}</p>
                                             <div className="mt-auto flex gap-4">
-                                                <button onClick={() => setSelectedCompanyId(emp.id)} className="flex-1 btn-premium py-4 text-xs uppercase">Ver Flota</button>
-                                                <button onClick={() => { setSelectedCompanyId(emp.id); setModalType('details'); }} className="p-4 bg-slate-100 rounded-2xl hover:bg-yellow-400 transition-colors"><Icon name="chart" size={20}/></button>
+                                                <button onClick={() => setSelectedCompanyId(emp.id)} className="flex-1 btn-premium py-5 text-xs uppercase tracking-widest">Abrir Flota</button>
+                                                <button onClick={() => { setSelectedCompanyId(emp.id); setModalType('details'); }} className="p-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] hover:bg-yellow-400 hover:border-yellow-400 transition-all"><Icon name="chart" size={24}/></button>
                                             </div>
                                         </div>
                                     ))}
@@ -562,69 +583,72 @@
                         )}
 
                         {activeCompany && (
-                            <div className="max-w-6xl mx-auto space-y-12 animate-in slide-in-from-right-10 duration-500 pb-20">
-                                <button onClick={() => setSelectedCompanyId(null)} className="flex items-center gap-3 font-black text-sm uppercase hover:text-yellow-600 transition-colors mb-4"><Icon name="chevronLeft"/> Volver al Directorio</button>
-                                <div className="glass-card p-12 flex flex-col xl:flex-row justify-between items-start xl:items-end gap-10 bg-slate-900 text-white overflow-hidden relative">
-                                    <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-400/10 blur-[100px] pointer-events-none"></div>
-                                    <div className="space-y-6 relative">
-                                        <h2 className="text-5xl sm:text-7xl font-black uppercase italic leading-none tracking-tighter">{activeCompany.nombre}</h2>
-                                        <div className="flex flex-wrap gap-4">
-                                            <span className="bg-white/10 px-5 py-2 rounded-xl text-xs font-bold uppercase border border-white/10">{activeCompany.cuit}</span>
-                                            <span className="bg-yellow-400/20 text-yellow-400 px-5 py-2 rounded-xl text-xs font-bold uppercase border border-yellow-400/20">{activeCompany.responsable}</span>
+                            <div className="max-w-6xl mx-auto space-y-12 animate-in slide-in-from-right-20 duration-500 pb-20 pt-10 lg:pt-0">
+                                <button onClick={() => setSelectedCompanyId(null)} className="flex items-center gap-4 font-black text-sm uppercase hover:text-yellow-600 transition-all mb-4 group"><Icon name="chevronLeft" className="group-hover:-translate-x-2 transition-transform"/> Volver al Directorio</button>
+                                <div className="glass-card p-14 flex flex-col xl:flex-row justify-between items-start xl:items-end gap-14 bg-slate-900 text-white relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-yellow-400/5 blur-[120px] pointer-events-none"></div>
+                                    <div className="space-y-8 relative z-10">
+                                        <h2 className="text-6xl sm:text-8xl font-black uppercase italic leading-[0.8] tracking-tighter">{activeCompany.nombre}</h2>
+                                        <div className="flex flex-wrap gap-5">
+                                            <div className="bg-white/5 px-6 py-3 rounded-2xl border border-white/10 text-xs font-black uppercase tracking-widest">{activeCompany.cuit}</div>
+                                            <div className="bg-yellow-400/10 text-yellow-400 px-6 py-3 rounded-2xl border border-yellow-400/10 text-xs font-black uppercase tracking-widest italic">{activeCompany.responsable}</div>
                                         </div>
                                     </div>
-                                    <button onClick={() => setModalType('vehicle')} className="btn-accent px-12 py-6 text-sm uppercase relative">Vincular Equipo</button>
+                                    <button onClick={() => setModalType('vehicle')} className="btn-accent px-14 py-7 text-sm uppercase relative z-10 shadow-2xl shadow-yellow-400/20">Vincular Maquinaria</button>
                                 </div>
 
-                                <div className="grid gap-12">
+                                <div className="grid gap-14">
                                     {(activeCompany.vehiculos || []).map(v => {
                                         const hsCiclo = (parseFloat(v.horometroTotal) || 0) - (parseFloat(v.ultimoServiceHoras) || 0);
                                         const perc = Math.max(0, 100 - (hsCiclo / (parseFloat(v.serviceInterval) || 250) * 100));
                                         const isExp = expandedVehicles.has(v.id);
                                         return (
-                                            <div key={v.id} className="glass-card p-8 sm:p-10 relative overflow-hidden">
-                                                <div className={`absolute top-0 right-0 px-8 py-3 text-[10px] font-black uppercase italic tracking-widest ${v.operativo ? 'bg-emerald-500 text-white' : 'bg-red-600 text-white animate-pulse'}`}>
-                                                    {v.operativo ? 'OPERATIVO' : 'FUERA DE SERVICIO'}
+                                            <div key={v.id} className="glass-card p-10 sm:p-14 relative overflow-hidden border-2 border-slate-100">
+                                                <div className={`absolute top-0 right-0 px-10 py-4 text-[10px] font-black uppercase italic tracking-[0.2em] rounded-bl-[2rem] border-l-2 border-b-2 border-slate-50 ${v.operativo ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600 animate-pulse'}`}>
+                                                    {v.operativo ? '● ACTIVO' : '● FUERA DE SERVICIO'}
                                                 </div>
-                                                <div className="flex flex-col xl:flex-row gap-12">
-                                                    <div className="flex-1 space-y-8">
-                                                        <div className="flex items-center gap-8">
-                                                            <div className="w-20 h-20 bg-slate-100 rounded-[2rem] flex items-center justify-center text-slate-800 shadow-inner"><Icon name="truck" size={40}/></div>
+                                                <div className="flex flex-col xl:flex-row gap-16">
+                                                    <div className="flex-1 space-y-10">
+                                                        <div className="flex items-center gap-10">
+                                                            <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] flex items-center justify-center text-slate-900 shadow-inner border border-slate-100"><Icon name="truck" size={48}/></div>
                                                             <div className="truncate w-full leading-none">
-                                                                <h4 className="text-3xl font-black italic tracking-tighter mb-3 uppercase">{v.nombre}</h4>
-                                                                <div className="flex items-center gap-6">
-                                                                    <span className="mono font-black text-2xl">{(v.horometroTotal || 0).toLocaleString()} <span className="text-xs text-slate-400">HS</span></span>
-                                                                    <span className="text-[10px] font-black uppercase text-slate-400 bg-slate-100 px-3 py-1.5 rounded-lg">P: {v.patente || "---"}</span>
+                                                                <h4 className="text-4xl font-black italic tracking-tighter mb-4 uppercase">{v.nombre}</h4>
+                                                                <div className="flex items-center gap-8">
+                                                                    <span className="mono font-black text-3xl">{(v.horometroTotal || 0).toLocaleString()} <span className="text-xs text-slate-300 font-bold uppercase ml-2 tracking-widest">Horas</span></span>
+                                                                    <div className="flex gap-4 border-l-2 pl-8 border-slate-100">
+                                                                        <button onClick={() => downloadPDF(activeCompany, v)} className="p-3 bg-slate-50 rounded-xl hover:bg-slate-900 hover:text-white transition-all"><Icon name="download" size={20}/></button>
+                                                                        <button onClick={() => { setActiveVehicleId(v.id); setModalType('qr'); setTimeout(() => generateQR(v.id), 100); }} className="p-3 bg-slate-50 rounded-xl hover:bg-yellow-400 transition-all"><Icon name="qr" size={20}/></button>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        <div className="space-y-4">
-                                                            <div className="flex justify-between items-end">
-                                                                <span className="text-[11px] font-black uppercase italic text-slate-400">Vida Ciclo Programado ({v.serviceInterval}hs)</span>
-                                                                <span className={`text-2xl font-black mono ${perc < 25 ? 'text-red-600' : 'text-slate-900'}`}>{perc.toFixed(0)}%</span>
+                                                        <div className="space-y-6">
+                                                            <div className="flex justify-between items-end leading-none">
+                                                                <p className="text-[11px] font-black uppercase italic text-slate-400 tracking-widest">Vida Ciclo Programado ({v.serviceInterval}hs)</p>
+                                                                <p className={`text-3xl font-black mono leading-none ${perc < 25 ? 'text-red-600' : 'text-slate-900'}`}>{perc.toFixed(0)}%</p>
                                                             </div>
-                                                            <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner"><div className={`h-full transition-all duration-1000 ${perc < 25 ? 'bg-red-500' : 'bg-yellow-400'}`} style={{width: `${perc}%`}}></div></div>
+                                                            <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner border border-slate-50"><div className={`h-full transition-all duration-1000 ${perc < 25 ? 'bg-red-500' : 'bg-slate-900'}`} style={{width: `${perc}%`}}></div></div>
                                                         </div>
                                                     </div>
-                                                    <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-1 xl:w-72 gap-4 shrink-0">
-                                                        <button onClick={() => { setActiveVehicleId(v.id); setModalType('log'); }} className="p-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase hover:bg-yellow-400 hover:text-black transition-all">Uso Diario</button>
-                                                        <button onClick={() => { setActiveVehicleId(v.id); setForm({...form, horas: v.horometroTotal}); setModalType('historical'); }} className="p-4 bg-white border-2 border-slate-100 rounded-2xl font-black text-[10px] uppercase hover:bg-slate-50">Historial</button>
-                                                        <button onClick={() => handleToggleStatus(v.id, v.operativo)} className={`p-4 rounded-2xl font-black text-[10px] uppercase transition-all ${v.operativo ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-emerald-500 text-white'}`}>{v.operativo ? 'Reportar Avería' : 'Reactivar'}</button>
-                                                        <button onClick={() => { setActiveVehicleId(v.id); setModalType('service'); }} className="p-4 bg-yellow-400 text-black rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-yellow-100 transition-all">Certificar Service</button>
+                                                    <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-1 xl:w-80 gap-5 shrink-0">
+                                                        <button onClick={() => { setActiveVehicleId(v.id); setModalType('log'); }} className="p-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs uppercase hover:bg-yellow-400 hover:text-black shadow-xl transition-all">Uso Diario</button>
+                                                        <button onClick={() => { setActiveVehicleId(v.id); setForm({...form, horas: v.horometroTotal}); setModalType('historical'); }} className="p-5 bg-white border-2 border-slate-100 rounded-[1.5rem] font-black text-xs uppercase hover:bg-slate-50 transition-all">Historial</button>
+                                                        <button onClick={() => handleToggleStatus(v.id, v.operativo)} className={`p-5 rounded-[1.5rem] font-black text-xs uppercase transition-all ${v.operativo ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-emerald-500 text-white'}`}>{v.operativo ? 'Informar Avería' : 'Reactivar'}</button>
+                                                        <button onClick={() => { setActiveVehicleId(v.id); setModalType('service'); }} className="p-5 bg-yellow-400 text-black rounded-[1.5rem] font-black text-xs uppercase shadow-xl shadow-yellow-100 transition-all">Certificar Service</button>
                                                     </div>
                                                 </div>
-                                                <button onClick={() => toggleHistory(v.id)} className="flex items-center gap-3 text-[11px] font-black uppercase text-slate-400 hover:text-slate-900 transition-colors border-t mt-8 pt-6 leading-none"><Icon name="history" size={16}/> Logs de Sistema <Icon name="chevronDown" size={16} className={isExp ? 'rotate-180 transition-all' : 'transition-all'}/></button>
+                                                <button onClick={() => toggleHistory(v.id)} className="flex items-center gap-4 text-[11px] font-black uppercase text-slate-300 hover:text-slate-900 transition-all border-t mt-12 pt-8 leading-none tracking-widest"><Icon name="history" size={18}/> Ver Auditoría de Sistema <Icon name="chevronDown" size={18} className={isExp ? 'rotate-180 transition-all' : 'transition-all'}/></button>
                                                 {isExp && (
-                                                    <div className="mt-6 overflow-x-auto rounded-3xl border border-slate-100 bg-slate-50/30 p-4 shadow-inner leading-none">
-                                                        <table className="w-full history-table leading-none">
-                                                            <thead><tr><th>Fecha</th><th>Tipo</th><th>Lectura</th><th>Novedades</th></tr></thead>
+                                                    <div className="mt-8 overflow-x-auto rounded-[2.5rem] border border-slate-100 bg-slate-50/30 p-6 shadow-inner animate-in slide-in-from-top-4 duration-300">
+                                                        <table className="w-full history-table">
+                                                            <thead><tr><th>Fecha</th><th>Tipo Evento</th><th>Lectura</th><th>Detalles Operativos</th></tr></thead>
                                                             <tbody>
                                                                 {[...(v.eventos || [])].reverse().map((ev, idx) => (
-                                                                    <tr key={idx} className="hover:bg-white transition-all leading-none">
-                                                                        <td className="font-bold opacity-60 italic whitespace-nowrap">{ev.fecha}</td>
-                                                                        <td><span className="font-black text-[9px] uppercase border px-3 py-1 rounded-full bg-white">{ev.tipo}</span></td>
-                                                                        <td className="mono font-black text-slate-900">{(ev.horas || 0).toLocaleString()} HS</td>
-                                                                        <td className="text-slate-500 italic text-xs leading-normal">{ev.litros ? `Stock -${ev.litros}L | ` : ''}{ev.insumos?.length ? `Insumos: ${ev.insumos.join(", ")} | ` : ''}{ev.nota || ev.motivo || '-'}</td>
+                                                                    <tr key={idx} className="hover:bg-white transition-all rounded-xl">
+                                                                        <td className="font-bold opacity-40 italic">{ev.fecha}</td>
+                                                                        <td><span className="font-black text-[9px] uppercase border-2 px-4 py-1.5 rounded-full bg-white tracking-widest shadow-sm">{ev.tipo}</span></td>
+                                                                        <td className="mono font-black text-slate-900">{(ev.horas || 0).toLocaleString()} <span className="text-[10px] text-slate-300 ml-1 uppercase">HS</span></td>
+                                                                        <td className="text-slate-500 italic text-xs leading-relaxed max-w-md">{ev.litros ? ` Stock -${ev.litros}L | ` : ''}{ev.insumos?.length ? ` Repuestos: ${ev.insumos.join(", ")} | ` : ''}{ev.nota || ev.motivo || '-'}</td>
                                                                     </tr>
                                                                 ))}
                                                             </tbody>
@@ -639,93 +663,93 @@
                         )}
                     </main>
 
-                    {/* --- MODALES --- */}
+                    {/* --- MODALES DINÁMICOS --- */}
                     {modalType && (
                         <Modal title={
                             modalType === 'company' ? "Nuevo Cliente" : 
                             modalType === 'vehicle' ? "Alta Maquinaria" : 
-                            modalType === 'log' ? "Ingreso de Actividad" : 
-                            modalType === 'details' ? "Estadísticas de Empresa" : 
-                            modalType === 'service' ? "Protocolo de Mantenimiento" : 
-                            modalType === 'qr' ? "Etiqueta Industrial" :
-                            modalType === 'historical' ? "Carga de Datos Manual" :
-                            modalType === 'downtime' ? "Orden de Parada" : "Módulo"
+                            modalType === 'log' ? "Bitácora Diaria" : 
+                            modalType === 'details' ? "Analítica de Flota" : 
+                            modalType === 'service' ? "Certificación Técnica" : 
+                            modalType === 'qr' ? "Etiqueta QR Única" :
+                            modalType === 'historical' ? "Sincronización Manual" :
+                            modalType === 'downtime' ? "Orden de Parada" : "BND Módulo"
                         } onClose={() => setModalType(null)}>
                             
                             {modalType === 'company' && (
                                 <div className="space-y-8 animate-fade-in">
-                                    <input className="w-full input-premium text-lg uppercase font-black tracking-tight" placeholder="Nombre Comercial de Empresa" onChange={e => setForm({...form, nombre: e.target.value})} />
-                                    <div className="grid grid-cols-2 gap-6"><input className="w-full input-premium" placeholder="C.U.I.T." onChange={e => setForm({...form, cuit: e.target.value})} /><input className="w-full input-premium" placeholder="Responsable Operativo" onChange={e => setForm({...form, responsable: e.target.value})} /></div>
-                                    <div className="space-y-2"><label className="text-[11px] font-black uppercase text-slate-400 italic">Capacidad Tanque Estacionario (Lts)</label><input type="number" className="w-full input-premium" placeholder="Ej: 1000" onChange={e => setForm({...form, tankCapacity: e.target.value})} /></div>
-                                    <button onClick={handleAddCompany} className="btn-accent w-full p-6 text-sm uppercase shadow-xl">Confirmar Alta de Cliente</button>
+                                    <div className="space-y-2"><label className="text-[11px] font-black uppercase text-slate-400 italic tracking-widest">Razón Social</label><input className="w-full input-premium text-lg uppercase font-black" placeholder="Nombre de la empresa" onChange={e => setForm({...form, nombre: e.target.value})} /></div>
+                                    <div className="grid grid-cols-2 gap-6"><div className="space-y-2"><label className="text-[11px] font-black uppercase text-slate-400 italic tracking-widest">C.U.I.T.</label><input className="w-full input-premium font-black" placeholder="00-00000000-0" onChange={e => setForm({...form, cuit: e.target.value})} /></div><div className="space-y-2"><label className="text-[11px] font-black uppercase text-slate-400 italic tracking-widest">Responsable</label><input className="w-full input-premium font-black" placeholder="Nombre completo" onChange={e => setForm({...form, responsable: e.target.value})} /></div></div>
+                                    <div className="space-y-2"><label className="text-[11px] font-black uppercase text-slate-400 italic tracking-widest">Capacidad Tanque Diésel (Lts)</label><input type="number" className="w-full input-premium shadow-inner" placeholder="Ej: 1000" onChange={e => setForm({...form, tankCapacity: e.target.value})} /></div>
+                                    <button onClick={handleAddCompany} className="btn-accent w-full p-6 text-sm uppercase shadow-2xl mt-4">Confirmar Alta de Cliente</button>
                                 </div>
                             )}
 
                             {modalType === 'vehicle' && (
                                 <div className="space-y-8 animate-fade-in">
-                                    <input className="w-full input-premium text-xl font-black italic uppercase text-slate-900" placeholder="NOMBRE O CÓDIGO DE UNIDAD" onChange={e => setForm({...form, nombre: e.target.value})} />
+                                    <div className="space-y-2"><label className="text-[11px] font-black uppercase text-slate-400 italic tracking-widest">Identificación de Unidad</label><input className="w-full input-premium text-xl font-black italic uppercase text-slate-900 shadow-inner" placeholder="Ejem: Retroexcavadora BND-01" onChange={e => setForm({...form, nombre: e.target.value})} /></div>
                                     <div className="grid grid-cols-2 gap-6">
-                                        <input className="w-full input-premium" placeholder="Marca" onChange={e => setForm({...form, marca: e.target.value})} />
-                                        <input className="w-full input-premium" placeholder="Modelo" onChange={e => setForm({...form, modelo: e.target.value})} />
-                                        <input className="w-full input-premium" placeholder="S/N (Serie)" onChange={e => setForm({...form, serie: e.target.value})} />
-                                        <input className="w-full input-premium" placeholder="Patente" onChange={e => setForm({...form, patente: e.target.value})} />
-                                        <div className="space-y-2"><label className="text-[11px] font-black uppercase italic">Intervalo Service (HS)</label><input type="number" className="w-full input-premium" defaultValue="250" onChange={e => setForm({...form, serviceInterval: e.target.value})} /></div>
-                                        <div className="space-y-2"><label className="text-[11px] font-black uppercase italic">Lectura Actual (HS)</label><input type="number" className="w-full input-premium mono" onChange={e => setForm({...form, horometro: e.target.value})} /></div>
+                                        <div className="space-y-2"><label className="text-[11px] font-black uppercase text-slate-400 italic tracking-widest">Marca</label><input className="w-full input-premium" placeholder="Marca" onChange={e => setForm({...form, marca: e.target.value})} /></div>
+                                        <div className="space-y-2"><label className="text-[11px] font-black uppercase text-slate-400 italic tracking-widest">Modelo</label><input className="w-full input-premium" placeholder="Modelo" onChange={e => setForm({...form, modelo: e.target.value})} /></div>
+                                        <div className="space-y-2"><label className="text-[11px] font-black uppercase text-slate-400 italic tracking-widest">Serie (S/N)</label><input className="w-full input-premium" placeholder="Nro Serie" onChange={e => setForm({...form, serie: e.target.value})} /></div>
+                                        <div className="space-y-2"><label className="text-[11px] font-black uppercase text-slate-400 italic tracking-widest">Patente</label><input className="w-full input-premium" placeholder="Placa" onChange={e => setForm({...form, patente: e.target.value})} /></div>
+                                        <div className="space-y-2"><label className="text-[11px] font-black uppercase text-slate-400 italic tracking-widest">Ciclo Service (HS)</label><input type="number" className="w-full input-premium" defaultValue="250" onChange={e => setForm({...form, serviceInterval: e.target.value})} /></div>
+                                        <div className="space-y-2"><label className="text-[11px] font-black uppercase text-slate-400 italic tracking-widest">Horas Iniciales</label><input type="number" className="w-full input-premium mono" onChange={e => setForm({...form, horometro: e.target.value})} /></div>
                                     </div>
-                                    <button onClick={handleAddVehicle} className="btn-premium w-full p-6 text-sm uppercase">Vincular a Flota Operativa</button>
+                                    <button onClick={handleAddVehicle} className="btn-premium w-full p-6 text-sm uppercase mt-4">Vincular Maquinaria a Flota</button>
                                 </div>
                             )}
 
                             {modalType === 'log' && (
                                 <div className="space-y-10 text-center animate-fade-in">
-                                    <div className="grid grid-cols-2 gap-8">
-                                        <div className="space-y-3"><label className="text-[11px] font-black uppercase tracking-widest text-slate-400">Horómetro Hoy</label><input className="w-full p-8 input-premium mono text-5xl text-center" type="number" value={form.horas} onChange={e => setForm({...form, horas: e.target.value})} /></div>
-                                        <div className="space-y-3"><label className="text-[11px] font-black uppercase tracking-widest text-slate-400">Carga Diésel (L)</label><input className="w-full p-8 input-premium mono text-5xl text-center" type="number" value={form.litros} onChange={e => setForm({...form, litros: e.target.value})} /></div>
+                                    <div className="grid grid-cols-2 gap-10">
+                                        <div className="space-y-4"><label className="text-[11px] font-black uppercase tracking-widest text-slate-400 italic">Horas Actuales</label><input className="w-full p-10 input-premium mono text-6xl text-center shadow-inner" type="number" value={form.horas} onChange={e => setForm({...form, horas: e.target.value})} /></div>
+                                        <div className="space-y-4"><label className="text-[11px] font-black uppercase tracking-widest text-slate-400 italic">Carga Diésel (L)</label><input className="w-full p-10 input-premium mono text-6xl text-center shadow-inner" type="number" value={form.litros} onChange={e => setForm({...form, litros: e.target.value})} /></div>
                                     </div>
-                                    <textarea className="w-full input-premium min-h-[140px] font-bold text-sm uppercase placeholder:text-slate-300" placeholder="Escriba novedades técnicas de la jornada..." value={form.nota} onChange={e => setForm({...form, nota: e.target.value})} />
-                                    {(!form.horas || !form.litros) && <div className="p-4 bg-red-50 text-red-600 font-black text-[10px] uppercase rounded-2xl border-2 border-red-100">⚠️ Se requieren horas y litros para procesar</div>}
-                                    <button disabled={!form.horas || !form.litros} onClick={handleDailyLog} className="btn-accent w-full p-6 text-sm uppercase shadow-xl">Impactar en Bitácora</button>
+                                    <div className="space-y-3"><label className="text-[11px] font-black uppercase tracking-widest text-slate-400 italic flex items-center gap-2 ml-4">Observaciones Técnicas</label><textarea className="w-full input-premium min-h-[160px] font-bold text-sm uppercase placeholder:text-slate-300" placeholder="Escriba novedades operativas de la jornada..." value={form.nota} onChange={e => setForm({...form, nota: e.target.value})} /></div>
+                                    {(!form.horas || !form.litros) && <div className="p-5 bg-red-50 text-red-600 font-black text-[11px] uppercase rounded-[1.5rem] border border-red-100 animate-pulse">⚠️ Los campos de Horas y Litros son obligatorios</div>}
+                                    <button disabled={!form.horas || !form.litros} onClick={handleDailyLog} className="btn-accent w-full p-7 text-sm uppercase shadow-2xl mt-4">Cargar en Bitácora Central</button>
                                 </div>
                             )}
 
                             {modalType === 'service' && (
-                                <div className="space-y-10 animate-fade-in">
-                                    <div className="bg-slate-900 p-10 rounded-[2rem] text-center shadow-2xl relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 blur-[50px] pointer-events-none"></div>
-                                        <p className="text-[11px] font-black uppercase italic mb-3 text-yellow-400 tracking-widest">Protocolo de Mantenimiento Preventivo</p>
-                                        <p className="mono text-6xl font-black italic text-white leading-none">HS {activeCompany?.vehiculos?.find(v => v.id === activeVehicleId)?.horometroTotal?.toLocaleString() || 0}</p>
+                                <div className="space-y-12 animate-fade-in">
+                                    <div className="bg-slate-900 p-12 rounded-[3rem] text-center shadow-2xl relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-white/5 blur-[80px] pointer-events-none"></div>
+                                        <p className="text-[12px] font-black uppercase italic mb-4 text-yellow-400 tracking-[0.3em]">Protocolo de Mantenimiento Preventivo</p>
+                                        <p className="mono text-7xl font-black italic text-white leading-none">HS {activeCompany?.vehiculos?.find(v => v.id === activeVehicleId)?.horometroTotal?.toLocaleString() || 0}</p>
                                     </div>
-                                    <div className="space-y-6">
-                                        <label className="text-[12px] font-black uppercase tracking-widest text-slate-400 italic">Componentes Reemplazados</label>
-                                        <div className="flex flex-wrap gap-3">
+                                    <div className="space-y-8">
+                                        <label className="text-[13px] font-black uppercase tracking-widest text-slate-800 italic flex items-center gap-3"><Icon name="wrench" size={20}/> Componentes Reemplazados</label>
+                                        <div className="flex flex-wrap gap-4">
                                             {['Filtro Aceite', 'Filtro Aire', 'Filtro Combustible', 'Aceite 15W40', 'Grasa Litio', 'Refrigerante'].map(item => (
-                                                <button key={item} onClick={() => setForm(prev => ({ ...prev, insumos: prev.insumos.includes(item) ? prev.insumos.filter(i => i !== item) : [...prev.insumos, item] }))} className={`px-5 py-3 rounded-2xl font-black text-[11px] uppercase transition-all border-2 ${form.insumos.includes(item) ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white border-slate-100 text-slate-400'}`}>{item}</button>
+                                                <button key={item} onClick={() => setForm(prev => ({ ...prev, insumos: prev.insumos.includes(item) ? prev.insumos.filter(i => i !== item) : [...prev.insumos, item] }))} className={`px-6 py-4 rounded-3xl font-black text-[11px] uppercase transition-all border-4 ${form.insumos.includes(item) ? 'bg-slate-900 text-white border-slate-900 shadow-xl' : 'bg-white border-slate-50 text-slate-400 hover:border-yellow-400'}`}>{item}</button>
                                             ))}
                                         </div>
-                                        <div className="flex gap-4">
-                                            <input className="flex-1 input-premium p-4 text-xs" placeholder="Otros repuestos..." value={form.insumoManual} onChange={e => setForm({...form, insumoManual: e.target.value})} />
-                                            <button onClick={() => { if(form.insumoManual) setForm(p => ({ ...p, insumos: [...p.insumos, form.insumoManual.toUpperCase()], insumoManual: '' })); }} className="px-10 bg-slate-900 text-white rounded-2xl font-black hover:bg-yellow-400 hover:text-black transition-all shadow-xl">+</button>
+                                        <div className="flex gap-5 mt-4">
+                                            <input className="flex-1 input-premium p-4 text-xs leading-none" placeholder="Otros repuestos no listados..." value={form.insumoManual} onChange={e => setForm({...form, insumoManual: e.target.value})} />
+                                            <button onClick={() => { if(form.insumoManual) setForm(p => ({ ...p, insumos: [...p.insumos, form.insumoManual.toUpperCase()], insumoManual: '' })); }} className="px-10 bg-slate-900 text-white rounded-3xl font-black hover:bg-yellow-400 hover:text-black transition-all shadow-xl font-black text-lg">+</button>
                                         </div>
                                     </div>
-                                    <textarea className="w-full input-premium min-h-[160px] font-bold uppercase text-xs" placeholder="Informe detallado del trabajo realizado..." value={form.nota} onChange={e => setForm({...form, nota: e.target.value})} />
-                                    <button onClick={handleServiceReset} className="btn-accent w-full p-6 text-sm uppercase">Certificar y Reiniciar Ciclo</button>
+                                    <textarea className="w-full input-premium min-h-[180px] font-bold uppercase text-xs shadow-inner" placeholder="Escriba un informe técnico de las tareas realizadas..." value={form.nota} onChange={e => setForm({...form, nota: e.target.value})} />
+                                    <button onClick={handleServiceReset} className="btn-accent w-full p-7 text-sm uppercase shadow-2xl">Certificar Trabajo y Reiniciar Ciclo</button>
                                 </div>
                             )}
 
                             {modalType === 'details' && activeCompany && (
-                                <div className="space-y-10 animate-fade-in">
-                                    <div className="flex justify-between items-center bg-slate-900 p-12 rounded-[3rem] shadow-2xl border-4 border-yellow-400 shadow-yellow-100">
+                                <div className="space-y-12 animate-fade-in leading-none">
+                                    <div className="flex justify-between items-center bg-slate-900 p-14 rounded-[4rem] shadow-2xl border-4 border-yellow-400">
                                         <div className="space-y-2">
-                                            <p className="text-[12px] font-black uppercase tracking-widest text-yellow-400">Inventario Central de Diésel</p>
-                                            <p className="text-6xl font-black mono text-white leading-none">{(activeCompany.currentFuel || 0).toLocaleString()} <span className="text-lg">L</span></p>
+                                            <p className="text-[13px] font-black uppercase tracking-widest text-yellow-400 italic">Inventario de Diésel</p>
+                                            <p className="text-7xl font-black mono text-white leading-none">{(activeCompany.currentFuel || 0).toLocaleString()} <span className="text-xl opacity-30">LTS</span></p>
                                         </div>
-                                        <button onClick={refillTank} className="px-10 py-5 bg-white text-slate-900 rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-yellow-400 transition-all">Reponer Stock</button>
+                                        <button onClick={refillTank} className="px-12 py-6 bg-white text-slate-900 rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-2xl hover:bg-yellow-400 transition-all hover:scale-105 active:scale-95">Reponer Stock</button>
                                     </div>
-                                    <div className="space-y-6">
-                                        <div className="flex justify-between items-center px-4">
-                                            <h4 className="text-[12px] font-black uppercase tracking-widest flex items-center gap-4 italic text-slate-400 leading-none"><Icon name="chart" size={24} className="text-yellow-400"/> Evolución Mensual de Consumo Acumulado</h4>
+                                    <div className="space-y-8">
+                                        <div className="flex justify-between items-center px-6">
+                                            <h4 className="text-[13px] font-black uppercase tracking-widest flex items-center gap-4 italic text-slate-400 leading-none"><Icon name="chart" size={26} className="text-yellow-400"/> Evolución Histórica de Consumo</h4>
                                         </div>
-                                        <div className="p-8 bg-white rounded-[3rem] shadow-inner border border-slate-100">
+                                        <div className="p-10 bg-white rounded-[4rem] shadow-2xl border border-slate-50">
                                             <canvas ref={chartRef}></canvas>
                                         </div>
                                     </div>
@@ -734,33 +758,47 @@
 
                             {modalType === 'downtime' && (
                                 <div className="space-y-10 animate-fade-in">
-                                    <div className="p-10 bg-red-100 rounded-[3rem] border-4 border-red-600 flex items-center gap-10">
-                                        <Icon name="alert" size={72} className="text-red-600 animate-pulse shrink-0"/>
+                                    <div className="p-12 bg-red-50 rounded-[4rem] border-4 border-red-500 flex items-center gap-10 shadow-2xl shadow-red-100">
+                                        <Icon name="alert" size={80} className="text-red-500 animate-pulse shrink-0"/>
                                         <div>
-                                            <p className="text-2xl font-black text-red-600 uppercase tracking-tighter italic">Alerta de Avería</p>
-                                            <p className="text-xs font-bold text-red-700 uppercase mt-2 leading-relaxed">Se emitirá una notificación inmediata al Panel de Dashboard y la unidad se marcará como averiada.</p>
+                                            <p className="text-3xl font-black text-red-600 uppercase tracking-tighter italic">Alerta de Falla</p>
+                                            <p className="text-xs font-bold text-red-800 uppercase mt-3 leading-relaxed opacity-60">La unidad dejará de computar operatividad inmediatamente. Se notificará al Panel Central de Control.</p>
                                         </div>
                                     </div>
-                                    <textarea className="w-full input-premium min-h-[220px] font-black text-red-600 uppercase text-sm border-red-200" placeholder="Describa el fallo técnico, piezas afectadas o síntomas..." value={form.motivo} onChange={e => setForm({...form, motivo: e.target.value})} />
-                                    <button onClick={handleConfirmDowntime} className="btn-danger-industrial w-full p-8 rounded-3xl text-xl shadow-2xl">Confirmar Parada Técnica</button>
+                                    <textarea className="w-full input-premium min-h-[260px] font-black text-red-600 uppercase text-sm border-red-200 shadow-inner" placeholder="Describa el fallo técnico, síntomas o piezas afectadas para el servicio técnico..." value={form.motivo} onChange={e => setForm({...form, motivo: e.target.value})} />
+                                    <button onClick={handleConfirmDowntime} className="w-full p-10 bg-red-600 text-white font-black rounded-[2.5rem] text-2xl uppercase tracking-widest border-4 border-red-800 shadow-2xl hover:bg-red-700 transition-all">Emitir Orden de Parada</button>
                                 </div>
                             )}
 
                             {modalType === 'qr' && (
-                                <div className="space-y-12 text-center flex flex-col items-center animate-fade-in">
-                                    <div className="p-14 bg-white rounded-[3rem] shadow-2xl shadow-yellow-100" id={`qr-container-${activeVehicleId}`}></div>
-                                    <p className="text-xs font-black uppercase italic text-slate-400 max-w-sm leading-relaxed">Etiqueta oficial BND Equipos. Coloque en el lateral izquierdo del chasis para inspecciones.</p>
-                                    <button onClick={() => window.print()} className="btn-premium px-20 py-6 text-lg uppercase shadow-xl">Imprimir Identificador</button>
+                                <div className="space-y-14 text-center flex flex-col items-center animate-fade-in py-10">
+                                    <div className="p-16 bg-white rounded-[4rem] shadow-2xl border-4 border-slate-900" id={`qr-container-${activeVehicleId}`}></div>
+                                    <div className="space-y-4">
+                                        <p className="text-[11px] font-black uppercase italic text-slate-300 tracking-[0.3em] leading-relaxed">Identificador Único BND</p>
+                                        <p className="text-xs font-bold text-slate-400 max-w-sm">Coloque esta etiqueta en el chasis o cabina para acceso rápido vía escáner.</p>
+                                    </div>
+                                    <button onClick={() => window.print()} className="btn-premium px-24 py-7 text-lg uppercase tracking-widest shadow-2xl">Imprimir Etiqueta</button>
+                                </div>
+                            )}
+
+                            {modalType === 'historical' && (
+                                <div className="space-y-10 animate-fade-in leading-none">
+                                    <div className="p-8 bg-slate-100 rounded-[2rem] border border-slate-200 font-black text-xs uppercase italic text-slate-400 text-center tracking-widest">Sincronización de registros históricos del equipo.</div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                                        <div className="space-y-3"><label className="text-[11px] font-black uppercase text-slate-400 italic ml-4">Fecha Operativa</label><input className="w-full input-premium" type="date" value={form.fecha} onChange={e => setForm({...form, fecha: e.target.value})} /></div>
+                                        <div className="space-y-3"><label className="text-[11px] font-black uppercase text-slate-400 italic ml-4">Horómetro Acumulado</label><input className="w-full input-premium mono" type="number" value={form.horas} onChange={e => setForm({...form, horas: e.target.value})} /></div>
+                                    </div>
+                                    <button onClick={handleDailyLog} className="btn-premium w-full p-8 text-sm uppercase tracking-widest mt-4 shadow-2xl">Sincronizar Datos</button>
                                 </div>
                             )}
                         </Modal>
                     )}
 
                     {scannerActive && (
-                        <div className="fixed inset-0 z-[200] bg-slate-900/95 flex items-center justify-center p-8 animate-fade-in">
-                            <div className="w-full max-w-md space-y-10 text-center">
-                                <div id="reader" className="shadow-2xl rounded-[3rem] border-8 border-yellow-400 bg-black overflow-hidden"></div>
-                                <button onClick={() => { setScannerActive(false); if(scannerRef.current) scannerRef.current.stop(); }} className="px-16 py-6 bg-white rounded-3xl font-black text-sm uppercase shadow-2xl hover:bg-red-600 hover:text-white transition-all">Cerrar Escáner</button>
+                        <div className="fixed inset-0 z-[200] bg-slate-900/98 flex items-center justify-center p-6 animate-fade-in">
+                            <div className="w-full max-w-md space-y-12 text-center">
+                                <div id="reader" className="shadow-2xl rounded-[4rem] border-[12px] border-yellow-400 bg-black overflow-hidden aspect-square"></div>
+                                <button onClick={() => { setScannerActive(false); if(scannerRef.current) scannerRef.current.stop(); }} className="px-20 py-7 bg-white text-slate-900 rounded-[2rem] font-black text-sm uppercase shadow-2xl hover:bg-red-600 hover:text-white transition-all">Cancelar Operación</button>
                             </div>
                         </div>
                     )}
