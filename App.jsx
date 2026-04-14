@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import Icon from './Icons.jsx';
-import { ModalComp, FuelTankCapsule } from './Components.jsx';
-import { db, auth, APP_ID, collection, onSnapshot, addDoc, updateDoc, doc, arrayUnion, setDoc, getDoc } from './firebaseConfig.js';
+// 1. Extraemos las herramientas de React directamente de la librería global
+const { useState, useEffect, useMemo, useRef } = React;
+
+// 2. Extraemos nuestros componentes y credenciales guardadas en la memoria (window)
+const { Icon, ModalComp, FuelTankCapsule, db, auth, APP_ID, fb } = window;
 
 const App = () => {
     const [user, setUser] = useState(null);
@@ -37,25 +38,33 @@ const App = () => {
     useEffect(() => {
         const initSync = async () => {
             if (!db || !auth) return;
-            auth.onAuthStateChanged((u) => {
+            fb.onAuthStateChanged(auth, (u) => {
                 setUser(u);
                 if (u) {
-                    const configRef = doc(db, "artifacts", APP_ID, "public", "data", "config", "bnd_info");
-                    getDoc(configRef).then(snap => { if(snap.exists()) setBndSettings(snap.data()); });
+                    // Carga Configuración
+                    const configRef = fb.doc(db, "artifacts", APP_ID, "public", "data", "config", "bnd_info");
+                    fb.getDoc(configRef).then(snap => { 
+                        if(snap.exists()) setBndSettings(snap.data()); 
+                    });
 
-                    const q = collection(db, "artifacts", APP_ID, "public", "data", "companies");
-                    const unsub = onSnapshot(q, (snapshot) => {
+                    // Carga Empresas en Tiempo Real
+                    const q = fb.collection(db, "artifacts", APP_ID, "public", "data", "companies");
+                    const unsub = fb.onSnapshot(q, (snapshot) => {
                         setCompanies(snapshot.docs.map(document => ({ id: document.id, ...document.data() })));
                         setLoading(false);
                     });
                     return () => unsub();
-                } else { setLoading(false); }
+                } else { 
+                    setLoading(false); 
+                }
             });
         };
-        initSync();
+        // Verificamos si Firebase ya cargó en el objeto global
+        if (window.db) initSync();
+        else window.addEventListener('firebase-ready', initSync);
     }, []);
 
-    // --- CÁLCULOS MEMOIZADOS ---
+    // --- CÁLCULOS MEMOIZADOS (Alertas) ---
     const alerts = useMemo(() => {
         let list = [];
         companies.forEach(emp => {
@@ -77,6 +86,7 @@ const App = () => {
         return list.sort((a,b) => (a.type === 'BREAKDOWN' ? -1 : 1));
     }, [companies]);
 
+    // --- CÁLCULOS MEMOIZADOS (Proyecciones) ---
     const projectionsData = useMemo(() => {
         let list = [];
         companies.forEach(emp => {
@@ -101,7 +111,7 @@ const App = () => {
 
     const activeCompany = useMemo(() => companies.find(c => c.id === selectedCompanyId), [companies, selectedCompanyId]);
 
-    // --- GRÁFICOS ---
+    // --- GRÁFICOS (Chart.js via window) ---
     useEffect(() => {
         if (modalType === 'details' && activeCompany && chartRef.current) {
             const ctx = chartRef.current.getContext('2d');
@@ -121,17 +131,17 @@ const App = () => {
         }
     }, [modalType, activeCompany]);
 
-    // --- MANEJADORES ---
+    // --- MANEJADORES DE ESTADO Y FIREBASE ---
     const saveBndSettings = async () => {
-        const docRef = doc(db, "artifacts", APP_ID, "public", "data", "config", "bnd_info");
-        await setDoc(docRef, bndSettings);
+        const docRef = fb.doc(db, "artifacts", APP_ID, "public", "data", "config", "bnd_info");
+        await fb.setDoc(docRef, bndSettings);
         setActiveTab('dashboard');
     };
 
     const handleAddCompany = async () => {
         if(!form.nombre) return;
-        const coll = collection(db, "artifacts", APP_ID, "public", "data", "companies");
-        await addDoc(coll, { 
+        const coll = fb.collection(db, "artifacts", APP_ID, "public", "data", "companies");
+        await fb.addDoc(coll, { 
             nombre: form.nombre, cuit: form.cuit, responsable: form.responsable, 
             tankCapacity: parseFloat(form.tankCapacity) || 1000, 
             currentFuel: parseFloat(form.tankCapacity) || 1000, 
@@ -145,21 +155,23 @@ const App = () => {
         const h = parseFloat(form.horas); const l = parseFloat(form.litros);
         const updated = activeCompany.vehiculos.map(v => v.id === activeVehicleId ? { ...v, horometroTotal: h, eventos: [...(v.eventos || []), { id: Date.now(), tipo: 'REGISTRO', fecha: form.fecha, horas: h, litros: l, nota: form.nota }] } : v);
         const newFuel = Math.max(0, (activeCompany.currentFuel || 0) - l);
-        await updateDoc(doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: updated, currentFuel: newFuel });
+        await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: updated, currentFuel: newFuel });
         setModalType(null); setForm({ ...form, horas: '', litros: '', nota: '' });
     };
 
     const handleToggleStatus = async (vId, currentStatus) => {
-        if(currentStatus) { setActiveVehicleId(vId); setModalType('downtime'); }
-        else {
+        if(currentStatus) { 
+            setActiveVehicleId(vId); 
+            setModalType('downtime'); 
+        } else {
             const updated = activeCompany.vehiculos.map(v => v.id === vId ? { ...v, operativo: true, workflowStatus: 'PENDIENTE', eventos: [...(v.eventos || []), { id: Date.now(), tipo: 'ALTA', fecha: new Date().toLocaleDateString(), nota: 'Revitalización Manual' }] } : v);
-            await updateDoc(doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: updated });
+            await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: updated });
         }
     };
 
     const handleConfirmDowntime = async () => {
         const updated = activeCompany.vehiculos.map(v => v.id === activeVehicleId ? { ...v, operativo: false, workflowStatus: 'PENDIENTE', eventos: [...(v.eventos || []), { id: Date.now(), tipo: 'BAJA', fecha: new Date().toLocaleDateString(), motivo: form.motivo }] } : v);
-        await updateDoc(doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: updated });
+        await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: updated });
         setModalType(null); setForm({...form, motivo: ''});
     };
 
@@ -167,22 +179,22 @@ const App = () => {
         if (newStatus === 'REPARADO') { setActiveVehicleId(vId); setSelectedCompanyId(cId); setModalType('repair_finish'); return; }
         const comp = companies.find(c => c.id === cId);
         const updated = comp.vehiculos.map(v => v.id === vId ? { ...v, workflowStatus: newStatus } : v);
-        await updateDoc(doc(db, "artifacts", APP_ID, "public", "data", "companies", cId), { vehiculos: updated });
+        await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", cId), { vehiculos: updated });
     };
 
     const handleRepairSubmit = async () => {
         const comp = companies.find(c => c.id === selectedCompanyId);
         const updated = comp.vehiculos.map(v => v.id === activeVehicleId ? { ...v, operativo: true, workflowStatus: 'PENDIENTE', eventos: [...(v.eventos || []), { id: Date.now(), tipo: 'REPARACION', fecha: new Date().toLocaleDateString(), nota: form.nota }] } : v);
-        await updateDoc(doc(db, "artifacts", APP_ID, "public", "data", "companies", selectedCompanyId), { vehiculos: updated });
+        await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", selectedCompanyId), { vehiculos: updated });
         setModalType(null); setForm({...form, nota: ''});
         setActiveTab('companies');
     };
 
     const handleAddVehicle = async () => {
-        const ref = doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id);
+        const ref = fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id);
         const h = parseFloat(form.horometro) || 0;
         const v = { id: Date.now().toString(), ...form, horometroTotal: h, ultimoServiceHoras: h, operativo: true, workflowStatus: 'PENDIENTE', eventos: [{ id: Date.now(), tipo: 'ALTA', fecha: new Date().toLocaleDateString(), horas: h, nota: 'Alta inicial' }] };
-        await updateDoc(ref, { vehiculos: arrayUnion(v) });
+        await fb.updateDoc(ref, { vehiculos: fb.arrayUnion(v) });
         setModalType(null);
     };
 
@@ -190,18 +202,18 @@ const App = () => {
         const h = parseFloat(form.horas);
         if(isNaN(h)) return;
         const updated = activeCompany.vehiculos.map(v => v.id === activeVehicleId ? { ...v, horometroTotal: Math.max(v.horometroTotal, h), eventos: [...(v.eventos || []), { id: Date.now(), tipo: 'REGISTRO', fecha: form.fecha, horas: h, nota: "Sincronización Histórica" }] } : v);
-        await updateDoc(doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: updated });
+        await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: updated });
         setModalType(null);
     };
 
     const handleServiceReset = async () => {
         const updated = activeCompany.vehiculos.map(v => v.id === activeVehicleId ? { ...v, ultimoServiceHoras: v.horometroTotal, eventos: [...(v.eventos || []), { id: Date.now(), tipo: 'SERVICE', fecha: new Date().toLocaleDateString(), horas: v.horometroTotal, insumos: form.insumos, nota: form.nota }] } : v);
-        await updateDoc(doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: updated });
+        await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: updated });
         setModalType(null); setForm({...form, insumos: [], nota: ''});
     };
 
     const refillTank = async () => {
-        await updateDoc(doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { currentFuel: activeCompany.tankCapacity });
+        await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { currentFuel: activeCompany.tankCapacity });
         setModalType(null);
     };
 
@@ -224,7 +236,13 @@ const App = () => {
         setTimeout(() => {
             scannerRef.current = new window.Html5Qrcode("reader");
             scannerRef.current.start({ facingMode: "environment" }, { fps: 10, qrbox: 200 }, (txt) => {
-                if (txt.startsWith("sp-asset:")) { const [_, cId, vId] = txt.split(":"); setSelectedCompanyId(cId); setActiveTab('companies'); setScannerActive(false); scannerRef.current.stop(); }
+                if (txt.startsWith("sp-asset:")) { 
+                    const [_, cId, vId] = txt.split(":"); 
+                    setSelectedCompanyId(cId); 
+                    setActiveTab('companies'); 
+                    setScannerActive(false); 
+                    scannerRef.current.stop(); 
+                }
             }, () => {}).catch(err => console.error(err));
         }, 500);
     };
@@ -236,13 +254,20 @@ const App = () => {
         new window.QRCode(div, { text: `sp-asset:${selectedCompanyId}:${vId}`, width: 160, height: 160, colorDark : "#0f172a", colorLight : "#ffffff" });
     };
 
-    const toggleHistory = (id) => { const ns = new Set(expandedVehicles); if (ns.has(id)) ns.delete(id); else ns.add(id); setExpandedVehicles(ns); };
+    const toggleHistory = (id) => { 
+        const ns = new Set(expandedVehicles); 
+        if (ns.has(id)) ns.delete(id); 
+        else ns.add(id); 
+        setExpandedVehicles(ns); 
+    };
 
     if (loading) return <div className="h-screen flex items-center justify-center bg-white"><div className="w-10 h-10 border-4 border-slate-900 border-t-yellow-400 rounded-full animate-spin"></div></div>;
 
+    // --- RENDERIZADO PRINCIPAL ---
     return (
         <div className="flex h-screen bg-slate-50 relative overflow-hidden leading-none text-slate-900">
             
+            {/* SIDEBAR */}
             <aside className={`sidebar-mobile lg:w-64 bg-white border-r border-slate-200 p-6 flex flex-col lg:static ${sidebarOpen ? 'open' : ''}`}>
                 <div className="flex items-center justify-between lg:justify-start gap-3 mb-10 leading-none">
                     <div className="flex items-center gap-2.5">
@@ -269,6 +294,7 @@ const App = () => {
                 </div>
             </aside>
 
+            {/* CONTENIDO PRINCIPAL */}
             <main className="flex-1 p-5 sm:p-8 lg:p-10 overflow-y-auto relative leading-none">
                 <header className="lg:hidden absolute top-0 left-0 w-full h-16 flex items-center justify-between px-6 bg-white/80 backdrop-blur-md z-40 border-b leading-none">
                      <button onClick={() => setSidebarOpen(true)} className="p-2 bg-slate-50 rounded-lg leading-none"><Icon name="menu" size={18}/></button>
@@ -276,6 +302,7 @@ const App = () => {
                      <div className="w-9 h-9 rounded-lg bg-yellow-400 flex items-center justify-center shadow-md leading-none"><Icon name="wrench" size={16} className="text-black"/></div>
                 </header>
 
+                {/* TAB: DASHBOARD */}
                 {activeTab === 'dashboard' && (
                     <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pt-10 lg:pt-0 leading-none">
                         <div className="px-2 leading-none"><h2 className="text-3xl font-black tracking-tighter uppercase italic text-slate-900 leading-none">Panel de Alertas</h2></div>
@@ -329,6 +356,7 @@ const App = () => {
                     </div>
                 )}
 
+                {/* TAB: EMPRESAS (LISTADO) */}
                 {activeTab === 'companies' && !activeCompany && (
                     <div className="max-w-6xl mx-auto space-y-10 animate-fade-in pb-20 pt-10 lg:pt-0 leading-none">
                         <div className="flex justify-between items-end border-b pb-6 px-2 leading-none">
@@ -354,6 +382,7 @@ const App = () => {
                     </div>
                 )}
 
+                {/* TAB: CONFIGURACIÓN */}
                 {activeTab === 'config' && (
                     <div className="max-w-3xl mx-auto space-y-10 animate-fade-in pt-10 lg:pt-0 leading-none">
                         <h2 className="text-4xl font-black uppercase italic tracking-tighter leading-none">Configuración</h2>
@@ -372,6 +401,7 @@ const App = () => {
                     </div>
                 )}
 
+                {/* DETALLE EMPRESA (FLOTA) */}
                 {activeCompany && (
                     <div className="max-w-6xl mx-auto space-y-8 animate-in slide-in-from-right-8 duration-300 pb-20 pt-10 lg:pt-0 leading-none">
                         <button onClick={() => setSelectedCompanyId(null)} className="flex items-center gap-2 font-black text-[9px] uppercase hover:text-yellow-600 transition-all mb-4 group leading-none"><Icon name="chevronLeft" size={14}/> Directorio</button>
@@ -417,6 +447,7 @@ const App = () => {
                     </div>
                 )}
 
+                {/* TAB: CALENDARIO */}
                 {activeTab === 'calendar' && (
                     <div className="max-w-5xl mx-auto space-y-10 animate-fade-in pt-10 lg:pt-0 leading-none">
                         <h2 className="text-3xl font-black uppercase italic tracking-tighter leading-none">Proyecciones</h2>
@@ -586,4 +617,5 @@ const App = () => {
     );
 };
 
-export default App;
+// 3. ¡VITAL! Exponemos la app terminada al entorno global para que el index.html la pueda ejecutar
+window.App = App;
