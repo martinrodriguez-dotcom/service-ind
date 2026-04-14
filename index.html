@@ -7,7 +7,11 @@
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚙️</text></svg>">
     
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -33,15 +37,152 @@
         }
 
         .mono { font-family: 'JetBrains Mono', monospace; }
-        
-        /* Personalización de Scrollbar */
+
+        /* Estética Premium Delicada */
+        .glass-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.05);
+            border-radius: 1.5rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.08);
+            border-color: #cbd5e1;
+        }
+
+        .btn-premium {
+            background: var(--primary-dark);
+            color: white;
+            font-weight: 700;
+            border-radius: 0.85rem;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-premium:hover:not(:disabled) {
+            background: #1e293b;
+            transform: translateY(-1px);
+        }
+
+        .btn-accent {
+            background: var(--primary-yellow);
+            color: #000000;
+            font-weight: 800;
+            border-radius: 0.85rem;
+            box-shadow: 0 4px 12px -2px rgba(251, 191, 36, 0.3);
+            transition: all 0.2s;
+        }
+
+        .btn-accent:hover:not(:disabled) { background: #f59e0b; }
+
+        .input-premium {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 1rem;
+            padding: 0.85rem 1.25rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .input-premium:focus {
+            outline: none;
+            border-color: var(--primary-yellow);
+            background: white;
+            box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.05);
+        }
+
+        /* Slicer de Workflow de Rotura */
+        .workflow-step {
+            padding: 10px 14px;
+            font-size: 9px;
+            font-weight: 800;
+            text-transform: uppercase;
+            text-align: center;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid #f1f5f9;
+            background: #ffffff;
+            color: #94a3b8;
+            flex: 1;
+        }
+
+        .workflow-step.active {
+            border-color: transparent;
+            color: white;
+            box-shadow: 0 4px 10px -2px rgba(0,0,0,0.1);
+            transform: scale(1.05);
+        }
+
+        .fuel-tank-container {
+            width: 100px;
+            height: 55px;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05));
+        }
+
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+        .history-table th {
+            text-align: left;
+            padding: 14px 20px;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #94a3b8;
+            font-weight: 800;
+            background: #fcfdfe;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .history-table td {
+            padding: 16px 20px;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        @media (max-width: 1024px) {
+            .sidebar-mobile {
+                position: fixed;
+                left: 0; top: 0; height: 100%;
+                z-index: 100;
+                transform: translateX(-100%);
+                transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                background: white;
+                width: 280px;
+                box-shadow: 10px 0 30px rgba(0,0,0,0.05);
+            }
+            .sidebar-mobile.open { transform: translateX(0); }
+        }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
-    <script type="text/babel" data-type="module" src="/src/main.jsx"></script>
+    <script type="module" src="./firebaseConfig.js"></script>
+
+    <script type="text/babel" src="./Icons.jsx"></script>
+    <script type="text/babel" src="./Components.jsx"></script>
+    <script type="text/babel" src="./App.jsx"></script>
+
+    <script type="text/babel">
+        const mountApp = () => {
+            if (window.App) {
+                const root = ReactDOM.createRoot(document.getElementById('root'));
+                root.render(<window.App />);
+            } else {
+                // Si App.jsx todavía se está traduciendo, volvemos a revisar en 50 milisegundos
+                setTimeout(mountApp, 50);
+            }
+        };
+        mountApp();
+    </script>
 </body>
 </html>
