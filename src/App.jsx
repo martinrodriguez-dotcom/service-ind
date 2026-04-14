@@ -384,4 +384,211 @@ const App = () => {
 
                         <div className="grid gap-6 leading-none">
                             {(activeCompany.vehiculos || []).map(v => {
-                                const hsCiclo
+                                const hsCiclo = (parseFloat(v.horometroTotal) || 0) - (parseFloat(v.ultimoServiceHoras) || 0);
+                                const perc = Math.max(0, 100 - (hsCiclo / (parseFloat(v.serviceInterval) || 250) * 100));
+                                const isExp = expandedVehicles.has(v.id);
+                                return (
+                                    <div key={v.id} className="glass-card p-6 sm:p-8 relative overflow-hidden border border-slate-100 transition-all leading-none">
+                                        <div className={`absolute top-0 right-0 px-5 py-1.5 text-[7px] font-black uppercase italic tracking-widest rounded-bl-xl leading-none ${v.operativo ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600 animate-pulse'}`}>{v.operativo ? '● ACTIVO' : '● ROTURA'}</div>
+                                        <div className="flex flex-col xl:flex-row gap-8 leading-none">
+                                            <div className="flex-1 space-y-6 leading-none">
+                                                <div className="flex items-center gap-5 leading-none"><div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-800 shadow-inner border border-slate-100"><Icon name="truck" size={20}/></div><div className="truncate w-full leading-none"><h4 className="text-xl font-black italic tracking-tighter mb-1.5 uppercase leading-none">{v.nombre}</h4><div className="flex items-center gap-4 leading-none"><span className="mono font-black text-lg leading-none">{(v.horometroTotal || 0).toLocaleString()} <span className="text-[9px] text-slate-300 font-bold ml-0.5">HS</span></span><div className="flex gap-2 border-l pl-4 border-slate-100 leading-none"><button onClick={() => downloadPDF(activeCompany, v)} className="p-1.5 bg-slate-50 rounded-lg hover:bg-slate-900 hover:text-white transition-all shadow-sm"><Icon name="download" size={14}/></button><button onClick={() => { setActiveVehicleId(v.id); setModalType('qr'); setTimeout(() => generateQR(v.id), 100); }} className="p-1.5 bg-slate-50 rounded-lg hover:bg-yellow-400 transition-all shadow-sm"><Icon name="qr" size={14}/></button></div></div></div></div>
+                                                <div className="space-y-2.5 leading-none"><div className="flex justify-between items-end leading-none"><p className="text-[8px] font-black uppercase italic text-slate-400 tracking-widest leading-none">Estado Ciclo ({v.serviceInterval}h)</p><p className={`text-md font-black mono leading-none ${perc < 25 ? 'text-red-600' : 'text-slate-900'}`}>{perc.toFixed(0)}%</p></div><div className="h-1.5 w-full bg-slate-50 rounded-full overflow-hidden shadow-inner leading-none"><div className={`h-full transition-all duration-1000 ${perc < 25 ? 'bg-red-500' : 'bg-slate-900'}`} style={{width: `${perc}%`}}></div></div></div>
+                                            </div>
+                                            <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-1 xl:w-48 gap-2.5 shrink-0 text-center leading-none">
+                                                <button onClick={() => { setActiveVehicleId(v.id); setModalType('log'); }} className="p-2.5 bg-slate-900 text-white rounded-lg font-black text-[7px] uppercase hover:bg-yellow-400 hover:text-black transition-all">Cargar</button>
+                                                <button onClick={() => { setActiveVehicleId(v.id); setForm({...form, horas: v.horometroTotal}); setModalType('historical'); }} className="p-2.5 bg-white border border-slate-200 rounded-lg font-black text-[7px] uppercase hover:bg-slate-50 transition-all shadow-sm">Historial</button>
+                                                <button onClick={() => handleToggleStatus(v.id, v.operativo)} className={`p-2.5 rounded-lg font-black text-[7px] uppercase transition-all shadow-sm ${v.operativo ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-emerald-500 text-white'}`}>{v.operativo ? 'Rotura' : 'Revivir'}</button>
+                                                <button onClick={() => { setActiveVehicleId(v.id); setModalType('service'); }} className="p-2.5 bg-yellow-400 text-black rounded-lg font-black text-[7px] uppercase shadow-lg shadow-yellow-100 transition-all">Service</button>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => toggleHistory(v.id)} className="flex items-center gap-2 text-[8px] font-black uppercase text-slate-300 hover:text-slate-900 transition-all border-t mt-4 pt-3 tracking-widest leading-none"><Icon name="history" size={12}/> Auditoría <Icon name="chevronDown" size={12} className={isExp ? 'rotate-180 transition-all' : 'transition-all'}/></button>
+                                        {isExp && (
+                                            <div className="mt-4 overflow-x-auto rounded-xl border border-slate-100 bg-slate-50/20 p-2 shadow-inner animate-fade-in leading-none">
+                                                <table className="w-full history-table leading-none">
+                                                    <thead><tr><th>Fecha</th><th>Tipo</th><th>Lectura</th><th>Detalles</th></tr></thead>
+                                                    <tbody>{[...(v.eventos || [])].reverse().map((ev, idx) => ( <tr key={idx} className="hover:bg-white transition-all rounded-xl leading-none"><td className="font-bold opacity-30 italic leading-none">{ev.fecha}</td><td className="leading-none"><span className="font-black text-[6px] uppercase border px-1.5 py-0.5 rounded bg-white shadow-sm leading-none">{ev.tipo}</span></td><td className="mono font-black text-slate-900 leading-none">{(ev.horas || 0).toLocaleString()} HS</td><td className="text-slate-500 italic text-[9px] leading-tight leading-none">{ev.litros ? `-${ev.litros}L | ` : ''}{ev.insumos?.length ? ` Reps: ${ev.insumos.join(", ")} | ` : ''}{ev.nota || ev.motivo || '-'}</td></tr> ))}</tbody>
+                                                </table>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'calendar' && (
+                    <div className="max-w-5xl mx-auto space-y-10 animate-fade-in pt-10 lg:pt-0 leading-none">
+                        <h2 className="text-3xl font-black uppercase italic tracking-tighter leading-none">Proyecciones</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 leading-none">
+                            {projectionsData.map((p, i) => (
+                                <div key={i} className="glass-card p-6 flex flex-col gap-4 shadow-xl shadow-slate-100 leading-none">
+                                    <div className="flex justify-between items-start gap-4 leading-none">
+                                        <div className="flex items-center gap-3 truncate leading-none">
+                                            <div className="p-2.5 bg-yellow-400 rounded-xl text-black shrink-0 shadow-md shadow-yellow-100"><Icon name="truck" size={16}/></div>
+                                            <div className="truncate leading-none">
+                                                <p className="font-black uppercase italic truncate mb-1 leading-none text-xs">{p.nombre}</p>
+                                                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">{p.empresaNombre}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right shrink-0 leading-none">
+                                            <p className="text-[8px] font-black uppercase tracking-widest mb-1.5 text-slate-400 italic leading-none">Est. Service</p>
+                                            <p className="text-sm font-black italic leading-none">{p.estDate ? p.estDate.toLocaleDateString() : 'N/A'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="p-2.5 bg-slate-50 rounded-xl border flex justify-between items-center text-[8px] font-black uppercase tracking-widest italic leading-none">
+                                        <div>Promedio Día: <span className="text-blue-600 block text-[10px] mt-1.5 leading-none">{p.avgUsage.toFixed(1)} HS</span></div>
+                                        <div className="text-right leading-none">Resta Ciclo: <span className="text-blue-600 block text-[10px] mt-1.5 leading-none">{Math.max(0, p.restHs).toFixed(1)} HS</span></div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </main>
+
+            {/* --- MODALES DINÁMICOS --- */}
+            {modalType && (
+                <ModalComp title={
+                    modalType === 'company' ? "Nuevo Cliente" : 
+                    modalType === 'vehicle' ? "Alta Maquinaria" : 
+                    modalType === 'log' ? "Bitácora" : 
+                    modalType === 'details' ? "Analítica" : 
+                    modalType === 'service' ? "Certificación" : 
+                    modalType === 'qr' ? "QR Unidad" : 
+                    modalType === 'repair_finish' ? "Cierre de Reparación" : 
+                    modalType === 'historical' ? "Carga Historial" : 
+                    modalType === 'downtime' ? "Reportar Rotura" : "BND Módulo"
+                } onClose={() => setModalType(null)}>
+                    
+                    {modalType === 'company' && (
+                        <div className="space-y-6 leading-none">
+                            <div className="space-y-1 leading-none"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Nombre Comercial</label><input className="w-full input-premium font-black uppercase shadow-sm leading-none" placeholder="Razón Social" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} /></div>
+                            <div className="grid grid-cols-2 gap-4 leading-none"><input className="w-full input-premium shadow-sm leading-none" placeholder="CUIT" value={form.cuit} onChange={e => setForm({...form, cuit: e.target.value})} /><input className="w-full input-premium shadow-sm leading-none" placeholder="Responsable" value={form.responsable} onChange={e => setForm({...form, responsable: e.target.value})} /></div>
+                            <div className="space-y-1 leading-none"><label className="text-[9px] font-black uppercase text-slate-400 italic ml-2">Capacidad Depósito (Lts)</label><input type="number" className="w-full input-premium shadow-sm leading-none" placeholder="Ej: 1000" value={form.tankCapacity} onChange={e => setForm({...form, tankCapacity: e.target.value})} /></div>
+                            <button onClick={handleAddCompany} className="btn-accent w-full p-4 text-[9px] uppercase shadow-lg shadow-sm mt-4 leading-none">Confirmar Registro</button>
+                        </div>
+                    )}
+
+                    {modalType === 'vehicle' && (
+                        <div className="space-y-5 leading-none">
+                            <div className="space-y-1 leading-none"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Interno / Nombre</label><input className="w-full input-premium text-lg font-black italic uppercase text-slate-900 shadow-sm leading-none" placeholder="BND-01" onChange={e => setForm({...form, nombre: e.target.value})} /></div>
+                            <div className="grid grid-cols-2 gap-4 leading-none">
+                                <input className="w-full input-premium shadow-sm leading-none" placeholder="Marca" onChange={e => setForm({...form, marca: e.target.value})} />
+                                <input className="w-full input-premium shadow-sm leading-none" placeholder="Modelo" onChange={e => setForm({...form, modelo: e.target.value})} />
+                                <input className="w-full input-premium shadow-sm leading-none" placeholder="Serie" onChange={e => setForm({...form, serie: e.target.value})} />
+                                <input className="w-full input-premium shadow-sm leading-none" placeholder="Patente" onChange={e => setForm({...form, patente: e.target.value})} />
+                                <div className="space-y-1 leading-none"><label className="text-[9px] font-black uppercase italic">Ciclo HS</label><input type="number" className="w-full input-premium shadow-sm leading-none" defaultValue="250" onChange={e => setForm({...form, serviceInterval: e.target.value})} /></div>
+                                <div className="space-y-1 leading-none"><label className="text-[9px] font-black uppercase italic">Horas Iniciales</label><input type="number" className="w-full input-premium mono shadow-sm leading-none" onChange={e => setForm({...form, horometro: e.target.value})} /></div>
+                            </div>
+                            <button onClick={handleAddVehicle} className="btn-premium w-full p-4 text-[9px] uppercase mt-4 shadow-lg leading-none">Vincular Maquinaria</button>
+                        </div>
+                    )}
+
+                    {modalType === 'log' && (
+                        <div className="space-y-8 text-center animate-fade-in leading-none">
+                            <div className="grid grid-cols-2 gap-6 leading-none">
+                                <div className="space-y-3 leading-none"><label className="text-[10px] font-black text-slate-400 uppercase leading-none">Lectura Horas</label><div className="relative leading-none"><div className="absolute top-2 right-6 text-[9px] font-black text-slate-300 italic uppercase leading-none">Ant: {activeCompany?.vehiculos?.find(v => v.id === activeVehicleId)?.horometroTotal || 0}</div><input className="w-full p-6 input-premium mono text-4xl text-center shadow-inner border-2 border-slate-100 leading-none" type="number" value={form.horas} onChange={e => setForm({...form, horas: e.target.value})} /></div></div>
+                                <div className="space-y-3 leading-none"><label className="text-[10px] font-black text-slate-400 uppercase leading-none">Carga Diésel (L)</label><input className="w-full p-6 input-premium mono text-4xl text-center shadow-inner border-2 border-slate-100 leading-none" type="number" value={form.litros} onChange={e => setForm({...form, litros: e.target.value})} /></div>
+                            </div>
+                            <textarea className="w-full input-premium min-h-[100px] font-bold text-xs uppercase shadow-inner leading-none" placeholder="Notas jornada..." value={form.nota} onChange={e => setForm({...form, nota: e.target.value})} />
+                            <button disabled={!form.horas || !form.litros} onClick={handleDailyLog} className="btn-accent w-full p-5 text-[10px] uppercase shadow-lg mt-4 leading-none">Impactar Registro</button>
+                        </div>
+                    )}
+
+                    {modalType === 'historical' && (
+                        <div className="space-y-6 animate-fade-in leading-none">
+                            <div className="p-4 bg-slate-50 border rounded-xl text-xs font-bold text-slate-400 italic leading-none">Carga de registros históricos. Sincroniza el horómetro total.</div>
+                            <div className="grid grid-cols-2 gap-4 leading-none"><input className="w-full input-premium leading-none" type="date" value={form.fecha} onChange={e => setForm({...form, fecha: e.target.value})} /><input className="w-full input-premium leading-none" type="number" placeholder="HS Totales" value={form.horas} onChange={e => setForm({...form, horas: e.target.value})} /></div>
+                            <button onClick={handleHistoricalData} className="btn-premium w-full p-4 text-[9px] uppercase shadow-lg leading-none">Sincronizar Historial</button>
+                        </div>
+                    )}
+
+                    {modalType === 'repair_finish' && (
+                        <div className="space-y-10 animate-fade-in leading-none">
+                            <div className="p-8 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-center gap-6 shadow-xl shadow-emerald-50 leading-none"><Icon name="check" size={50} className="text-emerald-600"/><div className="leading-none"><p className="text-2xl font-black text-emerald-600 uppercase italic leading-none">Equipo Reparado</p><p className="text-[10px] font-bold text-emerald-500 uppercase mt-2 leading-none">Unidad habilitada hoy.</p></div></div>
+                            <textarea className="w-full input-premium min-h-[180px] font-bold uppercase text-[10px] shadow-inner leading-none" placeholder="Informe técnico de reparación..." value={form.nota} onChange={e => setForm({...form, nota: e.target.value})} />
+                            <button onClick={handleRepairSubmit} className="btn-accent w-full p-7 text-[11px] uppercase shadow-2xl shadow-yellow-100 leading-none">Cerrar Ticket</button>
+                        </div>
+                    )}
+
+                    {modalType === 'service' && (
+                        <div className="space-y-8 animate-fade-in leading-none">
+                            <div className="bg-slate-900 p-8 rounded-2xl text-center shadow-xl relative overflow-hidden leading-none">
+                                <div className="absolute top-0 right-0 w-[150px] h-[150px] bg-white/5 blur-[60px] pointer-events-none"></div>
+                                <p className="text-[10px] font-black uppercase italic mb-3 text-yellow-400 tracking-widest leading-none">Certificación Service</p>
+                                <p className="mono text-5xl font-black italic text-white leading-none">HS {activeCompany?.vehiculos?.find(v => v.id === activeVehicleId)?.horometroTotal?.toLocaleString() || 0}</p>
+                            </div>
+                            <div className="space-y-5 leading-none">
+                                <label className="text-[11px] font-black uppercase tracking-widest text-slate-800 flex items-center gap-2 ml-2 leading-none"><Icon name="wrench" size={16}/> Repuestos</label>
+                                <div className="flex flex-wrap gap-2 leading-none">
+                                    {['Filtro Aceite', 'Filtro Aire', 'Filtro Combustible', 'Aceite 15W40', 'Grasa Litio', 'Refrigerante'].map(item => (
+                                        <button key={item} onClick={() => setForm(prev => ({ ...prev, insumos: prev.insumos.includes(item) ? prev.insumos.filter(i => i !== item) : [...prev.insumos, item] }))} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase transition-all border-2 leading-none ${form.insumos.includes(item) ? 'bg-slate-900 text-white border-slate-900 shadow-md' : 'bg-white border-slate-100 text-slate-400'}`}>{item}</button>
+                                    ))}
+                                </div>
+                                <div className="flex gap-4 mt-2 leading-none">
+                                    <input className="flex-1 input-premium p-3 text-xs shadow-sm leading-none" placeholder="Otro..." value={form.insumoManual} onChange={e => setForm({...form, insumoManual: e.target.value})} />
+                                    <button onClick={() => { if(form.insumoManual) setForm(p => ({ ...p, insumos: [...p.insumos, form.insumoManual.toUpperCase()], insumoManual: '' })); }} className="px-6 bg-slate-900 text-white rounded-xl font-black hover:bg-yellow-400 hover:text-black shadow-lg transition-all leading-none">+</button>
+                                </div>
+                            </div>
+                            <textarea className="w-full input-premium min-h-[140px] font-bold uppercase text-[10px] shadow-inner leading-none" placeholder="Detalle técnico..." value={form.nota} onChange={e => setForm({...form, nota: e.target.value})} />
+                            <button onClick={handleServiceReset} className="btn-accent w-full p-6 text-[10px] uppercase shadow-2xl leading-none">Reiniciar Ciclo</button>
+                        </div>
+                    )}
+
+                    {modalType === 'details' && activeCompany && (
+                        <div className="space-y-8 animate-fade-in leading-none">
+                            <div className="flex justify-between items-center bg-slate-900 p-8 rounded-3xl shadow-xl border border-white/5 shadow-yellow-100/10 border-yellow-400/20 leading-none">
+                                <div className="space-y-1 text-white leading-none">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-yellow-400 leading-none">Inventario Central</p>
+                                    <p className="text-5xl font-black mono leading-none">{(activeCompany.currentFuel || 0).toLocaleString()} <span className="text-lg opacity-20 leading-none">L</span></p>
+                                </div>
+                                <button onClick={refillTank} className="px-6 py-3 bg-white text-slate-900 rounded-xl font-black uppercase text-[8px] shadow-lg hover:bg-yellow-400 transition-all leading-none">Cargar</button>
+                            </div>
+                            <div className="space-y-4 leading-none">
+                                <h4 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 italic text-slate-400 ml-2 leading-none"><Icon name="chart" size={16} className="text-yellow-400"/> Consumo Mensual (Lts)</h4>
+                                <div className="p-4 bg-white rounded-3xl shadow-inner border border-slate-100 leading-none"><canvas ref={chartRef}></canvas></div>
+                            </div>
+                        </div>
+                    )}
+
+                    {modalType === 'downtime' && (
+                        <div className="space-y-8 animate-fade-in leading-none">
+                            <div className="p-10 bg-red-100 rounded-3xl border border-red-200 flex items-center gap-8 shadow-xl shadow-red-50 leading-none">
+                                <Icon name="alert" size={50} className="text-red-600 animate-pulse shrink-0"/>
+                                <div className="leading-none"><p className="text-2xl font-black text-red-600 uppercase tracking-tighter italic leading-none">Reportar Rotura</p><p className="text-[10px] font-bold text-red-800 uppercase mt-2 opacity-60 leading-none">Notificación inmediata al Panel.</p></div>
+                            </div>
+                            <textarea className="w-full input-premium min-h-[200px] font-black text-red-600 uppercase text-xs border-red-100 shadow-inner leading-none" placeholder="Motivo de la rotura..." value={form.motivo} onChange={e => setForm({...form, motivo: e.target.value})} />
+                            <button onClick={handleConfirmDowntime} className="w-full p-6 bg-red-600 text-white font-black rounded-2xl text-sm uppercase shadow-2xl border-2 border-red-800 transition-all active:scale-95 leading-none">Emitir Orden Parada</button>
+                        </div>
+                    )}
+
+                    {modalType === 'qr' && (
+                        <div className="space-y-12 text-center flex flex-col items-center animate-fade-in py-8 leading-none">
+                            <div className="p-10 bg-white rounded-[3rem] shadow-2xl border border-slate-100 shadow-slate-100 leading-none" id={`qr-container-${activeVehicleId}`}></div>
+                            <div className="space-y-3 leading-none"><p className="text-[11px] font-bold text-slate-400 max-w-[280px] leading-relaxed leading-none">BND-{activeVehicleId?.slice(-4)}</p></div>
+                            <button onClick={() => window.print()} className="btn-premium px-16 py-6 text-xs uppercase shadow-2xl transition-all leading-none">Imprimir Etiqueta</button>
+                        </div>
+                    )}
+                </ModalComp>
+            )}
+
+            {scannerActive && (
+                <div className="fixed inset-0 z-[200] bg-slate-900/98 flex items-center justify-center p-6 animate-fade-in leading-none">
+                    <div className="w-full max-w-md space-y-10 text-center leading-none">
+                        <div id="reader" className="shadow-2xl rounded-[3rem] border-[10px] border-yellow-400 bg-black overflow-hidden aspect-square shadow-yellow-100 leading-none"></div>
+                        <button onClick={() => { setScannerActive(false); if(scannerRef.current) scannerRef.current.stop(); }} className="px-16 py-6 bg-white text-slate-900 rounded-[2.5rem] font-black text-sm uppercase shadow-2xl transition-all shadow-white/10 border-none leading-none">Cancelar</button>
+                    </div>
+                </div>
+            )}
+
+        </div>
+    );
+};
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+    </script>
+</body>
+</html>
