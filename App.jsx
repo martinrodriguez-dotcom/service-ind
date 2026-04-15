@@ -20,6 +20,7 @@ const App = () => {
     // --- ESTADOS DE LA APLICACIÓN ---
     const [activeTab, setActiveTab] = useState('dashboard');
     const [selectedCompanyId, setSelectedCompanyId] = useState(null);
+    const [isolatedVehicleId, setIsolatedVehicleId] = useState(null);
     const [loading, setLoading] = useState(true);
     const [companies, setCompanies] = useState([]);
     const [expandedVehicles, setExpandedVehicles] = useState(new Set());
@@ -104,7 +105,7 @@ const App = () => {
         catch (err) { setLoginError('Correo o contraseña incorrectos.'); setAuthLoading(false); }
     };
 
-    const handleLogout = async () => { await fb.signOut(auth); setActiveTab('dashboard'); };
+    const handleLogout = async () => { await fb.signOut(auth); setActiveTab('dashboard'); setIsolatedVehicleId(null); };
 
     const handleRegisterUser = async (e) => {
         e.preventDefault();
@@ -141,6 +142,13 @@ const App = () => {
     // --- LÓGICA DE NEGOCIO Y CÁLCULOS ---
     const activeCompany = useMemo(() => companies.find(c => c.id === selectedCompanyId), [companies, selectedCompanyId]);
     const activeVehicle = useMemo(() => activeCompany?.vehiculos?.find(v => v.id === activeVehicleId), [activeCompany, activeVehicleId]);
+    
+    // Filtro mágico para mostrar SÓLO el vehículo escaneado o toda la flota
+    const displayedVehicles = useMemo(() => {
+        if (!activeCompany) return [];
+        if (isolatedVehicleId) return activeCompany.vehiculos.filter(v => v.id === isolatedVehicleId);
+        return activeCompany.vehiculos;
+    }, [activeCompany, isolatedVehicleId]);
 
     const alerts = useMemo(() => {
         let list = [];
@@ -267,7 +275,7 @@ const App = () => {
     };
 
     const handleUpdateWorkflow = async (cId, vId, ns) => {
-        if(ns === 'REPARADO') { setActiveVehicleId(vId); setSelectedCompanyId(cId); setModalType('repair_finish'); return; }
+        if(ns === 'REPARADO') { setActiveVehicleId(vId); setSelectedCompanyId(cId); setIsolatedVehicleId(null); setModalType('repair_finish'); return; }
         const c = companies.find(x => x.id === cId);
         const updated = c.vehiculos.map(v => v.id === vId ? {...v, workflowStatus: ns} : v);
         await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", cId), { vehiculos: updated });
@@ -299,7 +307,7 @@ const App = () => {
         setModalType(null);
     };
 
-    // --- UTILIDADES ---
+    // --- UTILIDADES PDF Y QR ---
     const downloadPDF = (company, vehicle) => {
         const { jsPDF } = window.jspdf; const doc = new jsPDF();
         doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 40, 'F');
@@ -312,16 +320,26 @@ const App = () => {
         doc.save(`BND_${vehicle.nombre}.pdf`);
     };
 
+    // ESCÁNER QR - PROPORCIÓN 1:1 PERFECTA
     const startScanner = () => {
         setScannerActive(true);
         setTimeout(() => {
             scannerRef.current = new window.Html5Qrcode("reader");
-            scannerRef.current.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (txt) => {
-                if (txt.startsWith("sp-asset:")) { 
-                    const [_, cid, vid] = txt.split(":"); 
-                    setSelectedCompanyId(cid); setActiveTab('companies'); setScannerActive(false); scannerRef.current.stop(); 
-                }
-            }, () => {}).catch(e => console.error(e));
+            scannerRef.current.start(
+                { facingMode: "environment" }, 
+                { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 }, 
+                (txt) => {
+                    if (txt.startsWith("sp-asset:")) { 
+                        const [_, cid, vid] = txt.split(":"); 
+                        setSelectedCompanyId(cid); 
+                        setIsolatedVehicleId(vid); 
+                        setActiveTab('companies'); 
+                        setScannerActive(false); 
+                        scannerRef.current.stop(); 
+                    }
+                }, 
+                (err) => {}
+            ).catch(e => console.error("Error cámara:", e));
         }, 500);
     };
 
@@ -331,24 +349,21 @@ const App = () => {
         new window.QRCode(div, { text: `sp-asset:${selectedCompanyId}:${vid}`, width: 180, height: 180, colorDark : "#0f172a" });
     };
 
-    // --- NUEVO MOTOR DE IMPRESIÓN QR (Limpio y Aislado) ---
+    // MOTOR DE IMPRESIÓN QR AISLADO (LIMPIO)
     const handlePrintQR = () => {
         const qrContainer = document.getElementById(`qr-container-${activeVehicleId}`);
         if (!qrContainer) return;
-        
-        const printWindow = window.open('', '', 'width=800,height=800');
+        const printWindow = window.open('', '', 'width=600,height=600');
         printWindow.document.write(`
             <html>
                 <head>
-                    <title>BND Etiqueta</title>
+                    <title>Impresión BND</title>
                     <style>
-                        body { 
-                            font-family: 'Arial', sans-serif; display: flex; flex-direction: column; 
-                            align-items: center; justify-content: center; height: 100vh; margin: 0; background: white;
-                        }
-                        h1 { font-size: 60px; font-weight: 900; font-style: italic; margin: 0 0 20px 0; color: #000; }
-                        .qr-box { padding: 20px; border: 8px solid #000; border-radius: 20px; display: inline-block; }
-                        h2 { font-size: 30px; font-weight: 900; margin: 20px 0 0 0; text-transform: uppercase; letter-spacing: 4px; color: #000; }
+                        @page { size: auto; margin: 0mm; }
+                        body { font-family: 'Arial', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                        h1 { font-size: 50px; font-weight: 900; font-style: italic; margin: 0 0 15px 0; color: #000; }
+                        .qr-box { padding: 15px; border: 6px solid #000; border-radius: 15px; display: inline-block; }
+                        h2 { font-size: 25px; font-weight: 900; margin: 15px 0 0 0; text-transform: uppercase; letter-spacing: 2px; color: #000; text-align: center; }
                     </style>
                 </head>
                 <body>
@@ -360,15 +375,12 @@ const App = () => {
         `);
         printWindow.document.close();
         printWindow.focus();
-        setTimeout(() => {
-            printWindow.print();
-            printWindow.close();
-        }, 500);
+        setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
     };
 
     const toggleHistory = (id) => { const ns = new Set(expandedVehicles); if (ns.has(id)) ns.delete(id); else ns.add(id); setExpandedVehicles(ns); };
 
-    // --- RENDERIZADO DE PANTALLAS DE ACCESO ---
+    // --- VISTAS DE CARGA Y LOGIN ---
     if (authLoading || loading) return <div className="h-screen flex flex-col items-center justify-center bg-slate-900 text-white font-black uppercase tracking-[0.2em] animate-pulse">Cargando BND...</div>;
 
     if (!user) return (
@@ -405,7 +417,7 @@ const App = () => {
                 </div>
                 <nav className="flex-1 space-y-2 md:space-y-3">
                     {nav.map(item => (
-                        <button key={item.id} onClick={() => { setActiveTab(item.id); setSelectedCompanyId(null); setSidebarOpen(false); }} className={`w-full p-4 md:p-5 rounded-2xl flex items-center gap-3 md:gap-4 font-black text-xs md:text-sm transition-all ${activeTab === item.id ? 'bg-slate-900 text-white shadow-xl md:shadow-2xl shadow-slate-300' : 'text-slate-400 hover:bg-slate-50'}`}>
+                        <button key={item.id} onClick={() => { setActiveTab(item.id); setSelectedCompanyId(null); setIsolatedVehicleId(null); setSidebarOpen(false); }} className={`w-full p-4 md:p-5 rounded-2xl flex items-center gap-3 md:gap-4 font-black text-xs md:text-sm transition-all ${activeTab === item.id ? 'bg-slate-900 text-white shadow-xl md:shadow-2xl shadow-slate-300' : 'text-slate-400 hover:bg-slate-50'}`}>
                             <Icon name={item.icon} size={18}/> {item.label}
                         </button>
                     ))}
@@ -449,7 +461,7 @@ const App = () => {
                                                     ))}
                                                 </div>
                                             ) : (
-                                                <button onClick={() => { setSelectedCompanyId(a.companyId); setActiveTab('companies'); }} className="btn-premium w-full md:w-auto text-[10px] md:text-xs">GESTIONAR</button>
+                                                <button onClick={() => { setSelectedCompanyId(a.companyId); setIsolatedVehicleId(null); setActiveTab('companies'); }} className="btn-premium w-full md:w-auto text-[10px] md:text-xs">GESTIONAR</button>
                                             )}
                                         </div>
                                     </div>
@@ -480,7 +492,7 @@ const App = () => {
                                         </div>
                                         <h3 className="text-xl md:text-2xl font-black uppercase italic truncate mb-1 pr-12 md:pr-16">{emp.nombre}</h3>
                                         <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 md:mb-8">ID: {emp.cuit}</p>
-                                        <button onClick={() => setSelectedCompanyId(emp.id)} className="btn-premium w-full text-sm md:text-base italic uppercase">Abrir Flota</button>
+                                        <button onClick={() => { setSelectedCompanyId(emp.id); setIsolatedVehicleId(null); }} className="btn-premium w-full text-sm md:text-base italic uppercase">Abrir Flota</button>
                                     </div>
                                 ))}
                             </div>
@@ -490,18 +502,26 @@ const App = () => {
                     {/* VISTA: FLOTA DE LA EMPRESA SELECCIONADA */}
                     {activeCompany && (
                         <div className="max-w-5xl mx-auto animate-fade-in pb-20">
-                            <button onClick={() => setSelectedCompanyId(null)} className="flex items-center gap-2 md:gap-3 text-xs md:text-sm font-black uppercase mb-6 md:mb-8 text-slate-400 hover:text-slate-900 transition-colors"><Icon name="chevronLeft" size={16}/> Volver</button>
+                            <button onClick={() => { setSelectedCompanyId(null); setIsolatedVehicleId(null); }} className="flex items-center gap-2 md:gap-3 text-xs md:text-sm font-black uppercase mb-6 md:mb-8 text-slate-400 hover:text-slate-900 transition-colors"><Icon name="chevronLeft" size={16}/> Volver</button>
                             <div className="glass-card p-6 md:p-8 bg-slate-900 text-white mb-6 md:mb-8 relative overflow-hidden">
                                 <div className="absolute top-0 right-0 w-48 h-48 md:w-64 md:h-64 bg-yellow-400/5 blur-[80px] md:blur-[100px] pointer-events-none" />
                                 <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter mb-3 md:mb-4 leading-none">{activeCompany.nombre}</h2>
                                 <div className="flex flex-wrap gap-3 md:gap-4">
                                     <div className="px-3 py-1.5 md:px-4 md:py-2 bg-white/5 border border-white/10 rounded-lg md:rounded-xl text-[8px] md:text-[10px] font-black uppercase tracking-widest">{activeCompany.cuit}</div>
-                                    {role === 'admin' && <button onClick={() => { setForm({nombre:'', marca:'', modelo:'', serie:'', patente:'', serviceInterval: 250, horometro: ''}); setModalType('vehicle'); }} className="btn-accent text-[9px] md:text-xs px-4">+ EQUIPO</button>}
+                                    {role === 'admin' && !isolatedVehicleId && <button onClick={() => { setForm({nombre:'', marca:'', modelo:'', serie:'', patente:'', serviceInterval: 250, horometro: ''}); setModalType('vehicle'); }} className="btn-accent text-[9px] md:text-xs px-4">+ EQUIPO</button>}
                                 </div>
                             </div>
 
+                            {/* BANNER MODO AISLAMIENTO */}
+                            {isolatedVehicleId && (
+                                <div className="mb-6 flex justify-between items-center bg-yellow-50 p-4 rounded-xl border border-yellow-200 shadow-sm animate-fade-in">
+                                    <span className="text-yellow-800 font-bold text-[10px] uppercase flex items-center gap-2"><Icon name="qr" size={14}/> Equipo Localizado por QR</span>
+                                    <button onClick={() => setIsolatedVehicleId(null)} className="text-[10px] font-black uppercase text-slate-500 hover:text-slate-900 bg-white px-3 py-1.5 rounded-lg border shadow-sm">VER FLOTA COMPLETA</button>
+                                </div>
+                            )}
+
                             <div className="grid gap-4 md:gap-5">
-                                {(activeCompany.vehiculos || []).map(v => {
+                                {displayedVehicles.map(v => {
                                     const ciclo = (v.horometroTotal || 0) - (v.ultimoServiceHoras || 0);
                                     const perc = Math.max(0, 100 - (ciclo / (v.serviceInterval || 250) * 100));
                                     return (
