@@ -1,16 +1,17 @@
-// Referenciamos el Icono que guardamos globalmente en el archivo anterior
 const Icon = window.Icon;
 
-// --- COMPONENTE MODAL PREMIUM ---
-const ModalComp = ({ title, onClose, children }) => (
+// --- COMPONENTE MODAL PREMIUM (Actualizado con Bloqueo) ---
+const ModalComp = ({ title, onClose, hideClose = false, children }) => (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 animate-fade-in leading-none">
         <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onClick={onClose} />
         <div className="relative w-full max-w-xl bg-white rounded-[2rem] shadow-2xl overflow-hidden border border-white/20">
             <div className="px-8 py-5 border-b flex justify-between items-center bg-slate-50/50 leading-none">
                 <h3 className="text-lg font-extrabold text-slate-800 tracking-tight uppercase leading-none italic">{title}</h3>
-                <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-all text-slate-400 leading-none">
-                    <Icon name="x" size={20} />
-                </button>
+                {!hideClose && (
+                    <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-all text-slate-400 leading-none">
+                        <Icon name="x" size={20} />
+                    </button>
+                )}
             </div>
             <div className="p-10 max-h-[85vh] overflow-y-auto leading-relaxed">
                 {children}
@@ -21,14 +22,8 @@ const ModalComp = ({ title, onClose, children }) => (
 
 // --- COMPONENTE TANQUE DE COMBUSTIBLE VISUAL ---
 const FuelTankCapsule = ({ capacity, current }) => {
-    // Calculamos el porcentaje de llenado, limitando entre 0 y 100
     const perc = capacity > 0 ? Math.max(0, Math.min(100, (current / capacity) * 100)) : 0;
-    
-    // Lógica de semaforización según el nivel de combustible
-    let color = "#10b981"; // Verde (Óptimo)
-    if (perc <= 50) color = "#f59e0b"; // Amarillo/Naranja (Precaución)
-    if (perc <= 25) color = "#ef4444"; // Rojo (Crítico/Alerta)
-    
+    let color = "#10b981"; if (perc <= 50) color = "#f59e0b"; if (perc <= 25) color = "#ef4444"; 
     return (
         <div className="flex flex-col items-center gap-1.5 leading-none">
             <div className="fuel-tank-container">
@@ -56,6 +51,5 @@ const FuelTankCapsule = ({ capacity, current }) => {
     );
 };
 
-// Exponemos los componentes al entorno global
 window.ModalComp = ModalComp;
 window.FuelTankCapsule = FuelTankCapsule;
