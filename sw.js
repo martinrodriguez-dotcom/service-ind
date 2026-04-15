@@ -1,5 +1,5 @@
 // Aumentamos la versión para forzar la actualización en los celulares
-const CACHE_NAME = 'bnd-v2.3';
+const CACHE_NAME = 'bnd-v2.4';
 
 // Sumamos style.css a la lista de archivos offline
 const ASSETS_TO_CACHE = [
