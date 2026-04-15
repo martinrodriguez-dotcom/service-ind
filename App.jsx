@@ -10,8 +10,9 @@ const App = () => {
     const [loginEmail, setLoginEmail] = useState('');
     const [loginPassword, setLoginPassword] = useState('');
     const [loginError, setLoginError] = useState('');
+    const [usersList, setUsersList] = useState([]); // Lista de usuarios para el Admin
 
-    // Estados para la creación y cambio de contraseñas
+    // Estados para contraseñas
     const [newUser, setNewUser] = useState({ email: '', password: '', role: 'operario' });
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -54,30 +55,34 @@ const App = () => {
                 if (u) {
                     setUser(u);
                     
-                    // 1. Buscamos el rol y estado de contraseña en la BD
+                    // 1. Buscamos el rol del usuario
                     try {
                         const userDocRef = fb.doc(db, "artifacts", APP_ID, "public", "data", "users", u.uid);
                         const userDoc = await fb.getDoc(userDocRef);
                         if(userDoc.exists()) {
                             const userData = userDoc.data();
-                            setRole(userData.role); 
                             
-                            // Si requiere cambio de clave, bloqueamos la app con el Modal
-                            if (userData.requiresPasswordChange) {
-                                setModalType('force_password_change');
+                            // Bloqueo total si el admin suspendió la cuenta
+                            if (userData.role === 'suspendido') {
+                                await fb.signOut(auth);
+                                alert("Acceso Denegado: Tu cuenta ha sido suspendida por Administración.");
+                                return;
                             }
+
+                            setRole(userData.role); 
+                            if (userData.requiresPasswordChange) setModalType('force_password_change');
                         } else {
+                            // Si entra y no tiene registro (ej: admin viejo), lo creamos como operario
+                            await fb.setDoc(userDocRef, { email: u.email, role: 'operario', requiresPasswordChange: false });
                             setRole('operario');
                         }
                     } catch (error) {
                         setRole('operario');
                     }
 
-                    // 2. Cargamos Configuración y Empresas
+                    // 2. Cargas Globales
                     const configRef = fb.doc(db, "artifacts", APP_ID, "public", "data", "config", "bnd_info");
-                    fb.getDoc(configRef).then(snap => { 
-                        if(snap.exists()) setBndSettings(snap.data()); 
-                    });
+                    fb.getDoc(configRef).then(snap => { if(snap.exists()) setBndSettings(snap.data()); });
 
                     const q = fb.collection(db, "artifacts", APP_ID, "public", "data", "companies");
                     const unsub = fb.onSnapshot(q, (snapshot) => {
@@ -87,10 +92,7 @@ const App = () => {
                     });
                     return () => unsub();
                 } else { 
-                    setUser(null);
-                    setRole(null);
-                    setLoading(false);
-                    setAuthLoading(false);
+                    setUser(null); setRole(null); setLoading(false); setAuthLoading(false);
                 }
             });
         };
@@ -99,100 +101,76 @@ const App = () => {
         else window.addEventListener('firebase-ready', initSync);
     }, []);
 
-    // --- FUNCIONES DE AUTENTICACIÓN Y USUARIOS ---
+    // Escucha de Usuarios (Solo para Administradores)
+    useEffect(() => {
+        if (role === 'admin' && db) {
+            const qUsers = fb.collection(db, "artifacts", APP_ID, "public", "data", "users");
+            const unsubUsers = fb.onSnapshot(qUsers, (snap) => {
+                setUsersList(snap.docs.map(doc => ({ uid: doc.id, ...doc.data() })));
+            });
+            return () => unsubUsers();
+        }
+    }, [role]);
+
+    // --- FUNCIONES DE AUTENTICACIÓN Y ROLES ---
     const handleLogin = async (e) => {
         e.preventDefault();
-        setAuthLoading(true);
-        setLoginError('');
-        try {
-            await fb.signInWithEmailAndPassword(auth, loginEmail, loginPassword);
-        } catch (err) {
-            setLoginError('Credenciales inválidas. Verifica tu correo y contraseña.');
-            setAuthLoading(false);
-        }
+        setAuthLoading(true); setLoginError('');
+        try { await fb.signInWithEmailAndPassword(auth, loginEmail, loginPassword); } 
+        catch (err) { setLoginError('Credenciales inválidas.'); setAuthLoading(false); }
     };
 
     const handleLogout = async () => {
         await fb.signOut(auth);
-        setActiveTab('dashboard'); 
-        setLoginEmail('');
-        setLoginPassword('');
+        setActiveTab('dashboard'); setLoginEmail(''); setLoginPassword('');
     };
 
     const handleRegisterUser = async (e) => {
         e.preventDefault();
         if (!newUser.email || !newUser.password) return;
-        
         try {
-            // Utilizamos la API REST de Firebase para crear el usuario sin desloguear al Admin actual
             const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email: newUser.email, password: newUser.password, returnSecureToken: true })
             });
-            
             const data = await response.json();
             if (data.error) throw new Error(data.error.message);
 
-            // Guardamos el rol y la obligación de cambiar clave en Firestore usando el UID (localId) generado
             await fb.setDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "users", data.localId), {
-                role: newUser.role,
-                email: newUser.email,
-                requiresPasswordChange: true
+                role: newUser.role, email: newUser.email, requiresPasswordChange: true
             });
-
-            setModalType(null);
-            setNewUser({ email: '', password: '', role: 'operario' });
-            alert(`Usuario ${newUser.email} creado con éxito.`);
-        } catch (err) {
-            console.error(err);
-            alert("Error al crear usuario: " + err.message);
-        }
+            setModalType(null); setNewUser({ email: '', password: '', role: 'operario' });
+            alert(`Usuario creado con éxito.`);
+        } catch (err) { alert("Error: " + err.message); }
     };
 
     const handleChangePassword = async (e) => {
         e.preventDefault();
-        if (newPassword !== confirmPassword) {
-            setPwdError('Las contraseñas no coinciden.');
-            return;
-        }
-        if (newPassword.length < 6) {
-            setPwdError('La contraseña debe tener al menos 6 caracteres.');
-            return;
-        }
-
+        if (newPassword !== confirmPassword) { setPwdError('Las contraseñas no coinciden.'); return; }
+        if (newPassword.length < 6) { setPwdError('Mínimo 6 caracteres.'); return; }
         try {
-            // Actualiza la contraseña en Firebase Auth
             await fb.updatePassword(auth.currentUser, newPassword);
-            
-            // Quita la obligación de cambio en Firestore
-            await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "users", auth.currentUser.uid), {
-                requiresPasswordChange: false
-            });
-            
-            setModalType(null);
-            setNewPassword('');
-            setConfirmPassword('');
-        } catch (err) {
-            setPwdError('Error interno. Cierra sesión e inténtalo de nuevo.');
+            await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "users", auth.currentUser.uid), { requiresPasswordChange: false });
+            setModalType(null); setNewPassword(''); setConfirmPassword('');
+        } catch (err) { setPwdError('Error interno. Cierra sesión e inténtalo de nuevo.'); }
+    };
+
+    const handleUpdateUserRole = async (uid, newRole) => {
+        if(window.confirm(`¿Seguro de cambiar el rol a ${newRole.toUpperCase()}?`)) {
+            await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "users", uid), { role: newRole });
         }
     };
 
     // --- CÁLCULOS MEMOIZADOS ---
+    const activeCompany = useMemo(() => companies.find(c => c.id === selectedCompanyId), [companies, selectedCompanyId]);
+
     const alerts = useMemo(() => {
         let list = [];
         companies.forEach(emp => {
             const fuelPerc = ((emp.currentFuel || 0) / (emp.tankCapacity || 1000)) * 100;
             if (fuelPerc <= 25) list.push({ type: 'FUEL', companyName: emp.nombre, companyId: emp.id, value: fuelPerc.toFixed(1) });
-            
             (emp.vehiculos || []).forEach(veh => {
-                if (!veh.operativo) {
-                    list.push({ 
-                        type: 'BREAKDOWN', ...veh, companyId: emp.id, companyName: emp.nombre,
-                        workflowStatus: veh.workflowStatus || 'PENDIENTE',
-                        breakageMotive: (veh.eventos || []).slice().reverse().find(e => e.tipo === 'BAJA')?.motivo || "Falla técnica reportada"
-                    });
-                }
+                if (!veh.operativo) list.push({ type: 'BREAKDOWN', ...veh, companyId: emp.id, companyName: emp.nombre, workflowStatus: veh.workflowStatus || 'PENDIENTE', breakageMotive: (veh.eventos || []).slice().reverse().find(e => e.tipo === 'BAJA')?.motivo || "Falla técnica" });
                 const rest = (parseFloat(veh.serviceInterval) || 250) - ((parseFloat(veh.horometroTotal) || 0) - (parseFloat(veh.ultimoServiceHoras) || 0));
                 if (rest < 50 && veh.operativo) list.push({ type: 'MAINTENANCE', ...veh, companyId: emp.id, companyName: emp.nombre, rest });
             });
@@ -205,46 +183,60 @@ const App = () => {
         companies.forEach(emp => {
             (emp.vehiculos || []).forEach(veh => {
                 const regs = (veh.eventos || []).filter(e => e.tipo === 'REGISTRO').sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
-                let avg = 0; 
-                if (regs.length >= 2) { 
-                    const dH = (parseFloat(regs[regs.length-1].horas) || 0) - (parseFloat(regs[0].horas) || 0); 
-                    const dD = Math.max(1, (new Date(regs[regs.length-1].fecha) - new Date(regs[0].fecha)) / 86400000); 
-                    avg = dH / dD; 
-                }
+                let avg = 0; if (regs.length >= 2) { const dH = (parseFloat(regs[regs.length-1].horas) || 0) - (parseFloat(regs[0].horas) || 0); const dD = Math.max(1, (new Date(regs[regs.length-1].fecha) - new Date(regs[0].fecha)) / 86400000); avg = dH / dD; }
                 const restHs = (parseFloat(veh.serviceInterval) || 250) - ((parseFloat(veh.horometroTotal) || 0) - (parseFloat(veh.ultimoServiceHoras) || 0));
-                let dateEst = null; 
-                if (avg > 0 && restHs > 0) { 
-                    dateEst = new Date(); dateEst.setDate(dateEst.getDate() + Math.ceil(restHs / avg)); 
-                }
+                let dateEst = null; if (avg > 0 && restHs > 0) { dateEst = new Date(); dateEst.setDate(dateEst.getDate() + Math.ceil(restHs / avg)); }
                 list.push({ ...veh, empresaNombre: emp.nombre, companyId: emp.id, estDate: dateEst, avgUsage: avg, restHs: restHs });
             });
         });
         return list.sort((a,b) => (a.estDate || Infinity) - (b.estDate || Infinity));
     }, [companies]);
 
-    const activeCompany = useMemo(() => companies.find(c => c.id === selectedCompanyId), [companies, selectedCompanyId]);
-
-    // --- GRÁFICOS ---
     useEffect(() => {
         if (modalType === 'details' && activeCompany && chartRef.current) {
             const ctx = chartRef.current.getContext('2d');
             let allEvents = activeCompany.vehiculos.flatMap(v => (v.eventos || []).filter(e => e.litros > 0));
             const labels = Array.from({length: 6}, (_, i) => { const d = new Date(); d.setMonth(d.getMonth() - (5 - i)); return d.toISOString().substring(0, 7); });
             const dataPoints = labels.map(m => allEvents.filter(e => e.fecha && e.fecha.startsWith(m)).reduce((sum, e) => sum + parseFloat(e.litros || 0), 0));
-            
             if (window.myChartCompVFinal) window.myChartCompVFinal.destroy();
             window.myChartCompVFinal = new window.Chart(ctx, {
                 type: 'line',
-                data: {
-                    labels: labels.map(m => ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"][parseInt(m.split('-')[1])-1]),
-                    datasets: [{ label: 'Diésel (L)', data: dataPoints, borderColor: '#fbbf24', backgroundColor: 'rgba(251, 191, 36, 0.05)', fill: true, tension: 0.4, borderWidth: 3 }]
-                },
+                data: { labels: labels.map(m => ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"][parseInt(m.split('-')[1])-1]), datasets: [{ label: 'Diésel (L)', data: dataPoints, borderColor: '#fbbf24', backgroundColor: 'rgba(251, 191, 36, 0.05)', fill: true, tension: 0.4, borderWidth: 3 }] },
                 options: { responsive: true, plugins: { legend: { display: false } } }
             });
         }
     }, [modalType, activeCompany]);
 
-    // --- MANEJADORES DE NEGOCIO ---
+    // --- OPERACIONES CRUD ADMINISTRADOR ---
+    const handleDeleteCompany = async (id) => {
+        if(window.confirm("ATENCIÓN: Se eliminará la empresa y TODA su flota permanentemente. ¿Deseas continuar?")) {
+            await fb.deleteDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", id));
+        }
+    };
+
+    const handleEditCompanySubmit = async () => {
+        await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", selectedCompanyId), {
+            nombre: form.nombre, cuit: form.cuit, responsable: form.responsable, tankCapacity: parseFloat(form.tankCapacity) || 1000
+        });
+        setModalType(null); setForm({...form, nombre: '', cuit: '', responsable: ''}); setSelectedCompanyId(null);
+    };
+
+    const handleDeleteVehicle = async (vehicleId) => {
+        if(window.confirm("¿Eliminar maquinaria de la flota permanentemente?")) {
+            const updatedVehicles = activeCompany.vehiculos.filter(v => v.id !== vehicleId);
+            await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: updatedVehicles });
+        }
+    };
+
+    const handleEditVehicleSubmit = async () => {
+        const updatedVehicles = activeCompany.vehiculos.map(v => v.id === activeVehicleId ? {
+            ...v, nombre: form.nombre, marca: form.marca, modelo: form.modelo, serie: form.serie, patente: form.patente, serviceInterval: parseFloat(form.serviceInterval) || 250
+        } : v);
+        await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: updatedVehicles });
+        setModalType(null);
+    };
+
+    // --- OPERACIONES BÁSICAS ---
     const saveBndSettings = async () => {
         const docRef = fb.doc(db, "artifacts", APP_ID, "public", "data", "config", "bnd_info");
         await fb.setDoc(docRef, bndSettings);
@@ -254,13 +246,16 @@ const App = () => {
     const handleAddCompany = async () => {
         if(!form.nombre) return;
         const coll = fb.collection(db, "artifacts", APP_ID, "public", "data", "companies");
-        await fb.addDoc(coll, { 
-            nombre: form.nombre, cuit: form.cuit, responsable: form.responsable, 
-            tankCapacity: parseFloat(form.tankCapacity) || 1000, 
-            currentFuel: parseFloat(form.tankCapacity) || 1000, 
-            vehiculos: [] 
-        });
+        await fb.addDoc(coll, { nombre: form.nombre, cuit: form.cuit, responsable: form.responsable, tankCapacity: parseFloat(form.tankCapacity) || 1000, currentFuel: parseFloat(form.tankCapacity) || 1000, vehiculos: [] });
         setModalType(null); setForm({...form, nombre: '', cuit: '', responsable: ''});
+    };
+
+    const handleAddVehicle = async () => {
+        const ref = fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id);
+        const h = parseFloat(form.horometro) || 0;
+        const v = { id: Date.now().toString(), ...form, horometroTotal: h, ultimoServiceHoras: h, operativo: true, workflowStatus: 'PENDIENTE', eventos: [{ id: Date.now(), tipo: 'ALTA', fecha: new Date().toLocaleDateString(), horas: h, nota: 'Alta inicial' }] };
+        await fb.updateDoc(ref, { vehiculos: fb.arrayUnion(v) });
+        setModalType(null);
     };
 
     const handleDailyLog = async () => {
@@ -273,10 +268,8 @@ const App = () => {
     };
 
     const handleToggleStatus = async (vId, currentStatus) => {
-        if(currentStatus) { 
-            setActiveVehicleId(vId); 
-            setModalType('downtime'); 
-        } else {
+        if(currentStatus) { setActiveVehicleId(vId); setModalType('downtime'); }
+        else {
             const updated = activeCompany.vehiculos.map(v => v.id === vId ? { ...v, operativo: true, workflowStatus: 'PENDIENTE', eventos: [...(v.eventos || []), { id: Date.now(), tipo: 'ALTA', fecha: new Date().toLocaleDateString(), nota: 'Revitalización Manual' }] } : v);
             await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: updated });
         }
@@ -299,21 +292,11 @@ const App = () => {
         const comp = companies.find(c => c.id === selectedCompanyId);
         const updated = comp.vehiculos.map(v => v.id === activeVehicleId ? { ...v, operativo: true, workflowStatus: 'PENDIENTE', eventos: [...(v.eventos || []), { id: Date.now(), tipo: 'REPARACION', fecha: new Date().toLocaleDateString(), nota: form.nota }] } : v);
         await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", selectedCompanyId), { vehiculos: updated });
-        setModalType(null); setForm({...form, nota: ''});
-        setActiveTab('companies');
-    };
-
-    const handleAddVehicle = async () => {
-        const ref = fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id);
-        const h = parseFloat(form.horometro) || 0;
-        const v = { id: Date.now().toString(), ...form, horometroTotal: h, ultimoServiceHoras: h, operativo: true, workflowStatus: 'PENDIENTE', eventos: [{ id: Date.now(), tipo: 'ALTA', fecha: new Date().toLocaleDateString(), horas: h, nota: 'Alta inicial' }] };
-        await fb.updateDoc(ref, { vehiculos: fb.arrayUnion(v) });
-        setModalType(null);
+        setModalType(null); setForm({...form, nota: ''}); setActiveTab('companies');
     };
 
     const handleHistoricalData = async () => {
-        const h = parseFloat(form.horas);
-        if(isNaN(h)) return;
+        const h = parseFloat(form.horas); if(isNaN(h)) return;
         const updated = activeCompany.vehiculos.map(v => v.id === activeVehicleId ? { ...v, horometroTotal: Math.max(v.horometroTotal, h), eventos: [...(v.eventos || []), { id: Date.now(), tipo: 'REGISTRO', fecha: form.fecha, horas: h, nota: "Sincronización Histórica" }] } : v);
         await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: updated });
         setModalType(null);
@@ -331,12 +314,9 @@ const App = () => {
     };
 
     const downloadPDF = (company, vehicle) => {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        doc.setFillColor(30, 41, 59); doc.rect(0, 0, 210, 45, 'F');
-        doc.setTextColor(255, 255, 255); doc.setFontSize(22); doc.text(bndSettings.name.toUpperCase(), 15, 25);
-        doc.setFontSize(10); doc.text(bndSettings.description, 15, 33);
-        doc.setFillColor(251, 191, 36); doc.rect(0, 45, 210, 2, 'F');
+        const { jsPDF } = window.jspdf; const doc = new jsPDF();
+        doc.setFillColor(30, 41, 59); doc.rect(0, 0, 210, 45, 'F'); doc.setTextColor(255, 255, 255); doc.setFontSize(22); doc.text(bndSettings.name.toUpperCase(), 15, 25);
+        doc.setFontSize(10); doc.text(bndSettings.description, 15, 33); doc.setFillColor(251, 191, 36); doc.rect(0, 45, 210, 2, 'F');
         doc.setTextColor(15, 23, 42); doc.setFontSize(14); doc.text("EXPEDIENTE TECNICO DE UNIDAD", 15, 60);
         doc.setFontSize(10); doc.text(`Cliente: ${company.nombre}`, 15, 75); doc.text(`Equipo: ${vehicle.nombre} | Patente: ${vehicle.patente || '-'}`, 15, 82);
         const tableData = (vehicle.eventos || []).slice().reverse().map(ev => [ev.fecha, ev.tipo, `${ev.horas || '-'} HS`, ev.litros || '-', ev.nota || ev.motivo || '-']);
@@ -349,104 +329,55 @@ const App = () => {
         setTimeout(() => {
             scannerRef.current = new window.Html5Qrcode("reader");
             scannerRef.current.start({ facingMode: "environment" }, { fps: 10, qrbox: 200 }, (txt) => {
-                if (txt.startsWith("sp-asset:")) { 
-                    const [_, cId, vId] = txt.split(":"); 
-                    setSelectedCompanyId(cId); 
-                    setActiveTab('companies'); 
-                    setScannerActive(false); 
-                    scannerRef.current.stop(); 
-                }
+                if (txt.startsWith("sp-asset:")) { const [_, cId, vId] = txt.split(":"); setSelectedCompanyId(cId); setActiveTab('companies'); setScannerActive(false); scannerRef.current.stop(); }
             }, () => {}).catch(err => console.error(err));
         }, 500);
     };
 
     const generateQR = (vId) => {
         const div = document.getElementById(`qr-container-${vId}`);
-        if(!div) return;
-        div.innerHTML = "";
+        if(!div) return; div.innerHTML = "";
         new window.QRCode(div, { text: `sp-asset:${selectedCompanyId}:${vId}`, width: 160, height: 160, colorDark : "#0f172a", colorLight : "#ffffff" });
     };
 
-    const toggleHistory = (id) => { 
-        const ns = new Set(expandedVehicles); 
-        if (ns.has(id)) ns.delete(id); 
-        else ns.add(id); 
-        setExpandedVehicles(ns); 
-    };
+    const toggleHistory = (id) => { const ns = new Set(expandedVehicles); if (ns.has(id)) ns.delete(id); else ns.add(id); setExpandedVehicles(ns); };
 
-    // --- PANTALLA DE CARGA GLOBAL ---
-    if (authLoading || loading) {
-        return (
-            <div className="h-screen flex flex-col items-center justify-center bg-slate-900">
-                <div className="w-12 h-12 border-4 border-slate-700 border-t-yellow-400 rounded-full animate-spin mb-4"></div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Cargando BND Pro...</p>
+    // --- PANTALLAS DE CARGA Y LOGIN ---
+    if (authLoading || loading) return <div className="h-screen flex flex-col items-center justify-center bg-slate-900"><div className="w-12 h-12 border-4 border-slate-700 border-t-yellow-400 rounded-full animate-spin mb-4"></div><p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Cargando BND Pro...</p></div>;
+    
+    if (!user) return (
+        <div className="flex h-screen items-center justify-center bg-slate-900 relative overflow-hidden leading-none">
+            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-yellow-400/10 blur-[120px] pointer-events-none"></div>
+            <div className="glass-card p-10 w-full max-w-md relative z-10 mx-4 shadow-2xl border-white/10 bg-white/5 backdrop-blur-xl">
+                <div className="flex flex-col items-center mb-10"><div className="w-16 h-16 bg-yellow-400 rounded-2xl flex items-center justify-center shadow-lg shadow-yellow-400/20 mb-5"><Icon name="wrench" size={32} className="text-black"/></div><h1 className="text-3xl font-black uppercase italic tracking-tighter text-white leading-none">BND Pro</h1><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Acceso Restringido</p></div>
+                {loginError && <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 text-red-400 text-[10px] font-black uppercase tracking-widest rounded-xl text-center leading-relaxed">{loginError}</div>}
+                <form onSubmit={handleLogin} className="space-y-6">
+                    <div className="space-y-2"><label className="text-[9px] font-black uppercase text-slate-400 ml-2 tracking-widest">Correo Electrónico</label><input type="email" required className="w-full input-premium font-bold bg-white/10 border-white/10 text-white placeholder-slate-500 focus:border-yellow-400 focus:bg-white/20" placeholder="usuario@bnd.com" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} /></div>
+                    <div className="space-y-2"><label className="text-[9px] font-black uppercase text-slate-400 ml-2 tracking-widest">Contraseña</label><input type="password" required className="w-full input-premium font-bold bg-white/10 border-white/10 text-white placeholder-slate-500 focus:border-yellow-400 focus:bg-white/20" placeholder="••••••••" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} /></div>
+                    <button type="submit" disabled={authLoading} className="btn-accent w-full p-4 text-[11px] uppercase tracking-widest shadow-xl mt-4 transition-all hover:scale-[1.02]">{authLoading ? 'Verificando...' : 'Iniciar Sesión'}</button>
+                </form>
             </div>
-        );
-    }
+        </div>
+    );
 
-    // --- PANTALLA DE LOGIN ---
-    if (!user) {
-        return (
-            <div className="flex h-screen items-center justify-center bg-slate-900 relative overflow-hidden leading-none">
-                <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-yellow-400/10 blur-[120px] pointer-events-none"></div>
-                <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-blue-500/10 blur-[100px] pointer-events-none"></div>
-                
-                <div className="glass-card p-10 w-full max-w-md relative z-10 mx-4 shadow-2xl border-white/10 bg-white/5 backdrop-blur-xl">
-                    <div className="flex flex-col items-center mb-10">
-                        <div className="w-16 h-16 bg-yellow-400 rounded-2xl flex items-center justify-center shadow-lg shadow-yellow-400/20 mb-5"><Icon name="wrench" size={32} className="text-black"/></div>
-                        <h1 className="text-3xl font-black uppercase italic tracking-tighter text-white leading-none">BND Pro</h1>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Acceso Restringido</p>
-                    </div>
+    // --- MENÚ DINÁMICO ---
+    const navItems = [ { id: 'dashboard', label: 'Panel de Alertas', icon: 'dashboard' }, { id: 'companies', label: 'Directorio', icon: 'company' }, { id: 'calendar', label: 'Proyecciones', icon: 'calendar' } ];
+    if (role === 'admin') navItems.push({ id: 'config', label: 'Configuración', icon: 'settings' });
 
-                    {loginError && <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 text-red-400 text-[10px] font-black uppercase tracking-widest rounded-xl text-center leading-relaxed">{loginError}</div>}
-                    
-                    <form onSubmit={handleLogin} className="space-y-6">
-                        <div className="space-y-2">
-                            <label className="text-[9px] font-black uppercase text-slate-400 ml-2 tracking-widest">Correo Electrónico</label>
-                            <input type="email" required className="w-full input-premium font-bold bg-white/10 border-white/10 text-white placeholder-slate-500 focus:border-yellow-400 focus:bg-white/20" placeholder="usuario@bnd.com" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-[9px] font-black uppercase text-slate-400 ml-2 tracking-widest">Contraseña</label>
-                            <input type="password" required className="w-full input-premium font-bold bg-white/10 border-white/10 text-white placeholder-slate-500 focus:border-yellow-400 focus:bg-white/20" placeholder="••••••••" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} />
-                        </div>
-                        <button type="submit" disabled={authLoading} className="btn-accent w-full p-4 text-[11px] uppercase tracking-widest shadow-xl mt-4 transition-all hover:scale-[1.02]">{authLoading ? 'Verificando...' : 'Iniciar Sesión'}</button>
-                    </form>
-                </div>
-            </div>
-        );
-    }
-
-    // --- CONFIGURACIÓN DE MENÚ SEGÚN ROL ---
-    const navItems = [
-        { id: 'dashboard', label: 'Panel de Alertas', icon: 'dashboard' },
-        { id: 'companies', label: 'Directorio', icon: 'company' },
-        { id: 'calendar', label: 'Proyecciones', icon: 'calendar' }
-    ];
-    if (role === 'admin') {
-        navItems.push({ id: 'config', label: 'Configuración', icon: 'settings' });
-    }
-
-    // --- INTERFAZ PRINCIPAL ---
+    // --- INTERFAZ ---
     return (
         <div className="flex h-screen bg-slate-50 relative overflow-hidden leading-none text-slate-900">
-            
             <aside className={`sidebar-mobile lg:w-64 bg-white border-r border-slate-200 p-6 flex flex-col lg:static ${sidebarOpen ? 'open' : ''}`}>
                 <div className="flex items-center justify-between lg:justify-start gap-3 mb-10 leading-none">
                     <div className="flex items-center gap-2.5">
                         <div className="w-9 h-9 bg-yellow-400 rounded-xl flex items-center justify-center shadow-lg"><Icon name="wrench" size={18} className="text-black"/></div>
-                        <div className="leading-none">
-                            <h1 className="text-lg font-extrabold uppercase italic tracking-tighter leading-none">BND Pro</h1>
-                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">{role === 'admin' ? 'Administrador' : 'Operario'}</p>
-                        </div>
+                        <div className="leading-none"><h1 className="text-lg font-extrabold uppercase italic tracking-tighter leading-none">BND Pro</h1><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">{role === 'admin' ? 'Administrador' : 'Operario'}</p></div>
                     </div>
                     <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-slate-400 leading-none"><Icon name="x" size={18}/></button>
                 </div>
                 <nav className="space-y-1.5 flex-1 overflow-y-auto leading-none">
                     {navItems.map(item => (
-                        <button key={item.id} onClick={() => {setActiveTab(item.id); setSelectedCompanyId(null); setSidebarOpen(false);}} 
-                            className={`w-full p-3.5 rounded-xl transition-all flex items-center gap-3 font-bold text-xs leading-none ${activeTab === item.id ? 'bg-slate-900 text-white shadow-xl shadow-slate-200' : 'text-slate-400 hover:bg-slate-50'}`}>
-                            <Icon name={item.icon} size={16}/> <span>{item.label}</span>
-                        </button>
+                        <button key={item.id} onClick={() => {setActiveTab(item.id); setSelectedCompanyId(null); setSidebarOpen(false);}} className={`w-full p-3.5 rounded-xl transition-all flex items-center gap-3 font-bold text-xs leading-none ${activeTab === item.id ? 'bg-slate-900 text-white shadow-xl shadow-slate-200' : 'text-slate-400 hover:bg-slate-50'}`}><Icon name={item.icon} size={16}/> <span>{item.label}</span></button>
                     ))}
                 </nav>
                 <div className="pt-6 border-t leading-none space-y-2">
@@ -457,9 +388,7 @@ const App = () => {
 
             <main className="flex-1 p-5 sm:p-8 lg:p-10 overflow-y-auto relative leading-none">
                 <header className="lg:hidden absolute top-0 left-0 w-full h-16 flex items-center justify-between px-6 bg-white/80 backdrop-blur-md z-40 border-b leading-none">
-                     <button onClick={() => setSidebarOpen(true)} className="p-2 bg-slate-50 rounded-lg leading-none"><Icon name="menu" size={18}/></button>
-                     <h1 className="text-sm font-black uppercase tracking-widest italic leading-none">BND EQUIPOS</h1>
-                     <div className="w-9 h-9 rounded-lg bg-yellow-400 flex items-center justify-center shadow-md leading-none"><Icon name="wrench" size={16} className="text-black"/></div>
+                     <button onClick={() => setSidebarOpen(true)} className="p-2 bg-slate-50 rounded-lg leading-none"><Icon name="menu" size={18}/></button><h1 className="text-sm font-black uppercase tracking-widest italic leading-none">BND EQUIPOS</h1><div className="w-9 h-9 rounded-lg bg-yellow-400 flex items-center justify-center shadow-md leading-none"><Icon name="wrench" size={16} className="text-black"/></div>
                 </header>
 
                 {activeTab === 'dashboard' && (
@@ -472,41 +401,20 @@ const App = () => {
                                 return (
                                     <div key={i} className={`glass-card p-5 flex flex-col md:flex-row justify-between items-center gap-6 border-l-[10px] ${colorClass}`}>
                                         <div className="flex items-center gap-6 w-full leading-none group">
-                                            <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${a.type === 'BREAKDOWN' ? 'bg-red-500 text-white animate-pulse' : 'bg-yellow-400 text-black shadow-lg'}`}>
-                                                <Icon name={a.type === 'FUEL' ? 'fuel' : 'alert'} size={24}/>
-                                            </div>
-                                            <div className="leading-none">
-                                                <h4 className="text-lg font-black uppercase italic leading-none mb-1.5 tracking-tight">{a.nombre || (a.type === 'FUEL' ? 'STOCK BAJO' : 'AVISO')}</h4>
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">{a.companyName}</p>
-                                            </div>
+                                            <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${a.type === 'BREAKDOWN' ? 'bg-red-500 text-white animate-pulse' : 'bg-yellow-400 text-black shadow-lg'}`}><Icon name={a.type === 'FUEL' ? 'fuel' : 'alert'} size={24}/></div>
+                                            <div className="leading-none"><h4 className="text-lg font-black uppercase italic leading-none mb-1.5 tracking-tight">{a.nombre || (a.type === 'FUEL' ? 'STOCK BAJO' : 'AVISO')}</h4><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">{a.companyName}</p></div>
                                         </div>
                                         <div className="flex items-center gap-6 leading-none">
                                             <div className="text-right leading-none shrink-0 min-w-[100px]">
-                                                {a.type === 'BREAKDOWN' ? (
-                                                    <div className="space-y-1.5 leading-none"><p className="text-[10px] font-black text-red-600 uppercase tracking-widest leading-none">{a.workflowStatus}</p><p className="text-[9px] font-bold text-slate-400 italic max-w-[180px] truncate">{a.breakageMotive}</p></div>
-                                                ) : a.type === 'MAINTENANCE' ? (
-                                                    <p className="text-2xl font-black text-slate-900 leading-none">-{a.rest?.toFixed(1)} HS</p>
-                                                ) : (
-                                                    <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest leading-none">Stock: {a.value}%</p>
-                                                )}
+                                                {a.type === 'BREAKDOWN' ? <div className="space-y-1.5 leading-none"><p className="text-[10px] font-black text-red-600 uppercase tracking-widest leading-none">{a.workflowStatus}</p><p className="text-[9px] font-bold text-slate-400 italic max-w-[180px] truncate">{a.breakageMotive}</p></div> : a.type === 'MAINTENANCE' ? <p className="text-2xl font-black text-slate-900 leading-none">-{a.rest?.toFixed(1)} HS</p> : <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest leading-none">Stock: {a.value}%</p>}
                                             </div>
                                             {a.type === 'BREAKDOWN' ? (
                                                 <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-2 shrink-0 leading-none">
-                                                    {[
-                                                        { id: 'PENDIENTE', label: 'Pendiente', color: 'bg-red-500' },
-                                                        { id: 'VISTA', label: 'Vista', color: 'bg-orange-500' },
-                                                        { id: 'REVISION', label: 'En Revisión', color: 'bg-yellow-400' },
-                                                        { id: 'REPARADO', label: 'Reparado', color: 'bg-emerald-500' }
-                                                    ].map(step => (
-                                                        <button key={step.id} onClick={() => handleUpdateWorkflow(a.companyId, a.id, step.id)}
-                                                            className={`workflow-step ${a.workflowStatus === step.id ? `${step.color} ${step.id === 'REVISION' ? 'text-black' : 'text-white'} active shadow-md` : 'text-slate-400 hover:text-slate-600'}`}>
-                                                            {step.label}
-                                                        </button>
+                                                    {[{ id: 'PENDIENTE', label: 'Pendiente', color: 'bg-red-500' }, { id: 'VISTA', label: 'Vista', color: 'bg-orange-500' }, { id: 'REVISION', label: 'En Revisión', color: 'bg-yellow-400' }, { id: 'REPARADO', label: 'Reparado', color: 'bg-emerald-500' }].map(step => (
+                                                        <button key={step.id} onClick={() => handleUpdateWorkflow(a.companyId, a.id, step.id)} className={`workflow-step ${a.workflowStatus === step.id ? `${step.color} ${step.id === 'REVISION' ? 'text-black' : 'text-white'} active shadow-md` : 'text-slate-400 hover:text-slate-600'}`}>{step.label}</button>
                                                     ))}
                                                 </div>
-                                            ) : (
-                                                <button onClick={() => { setSelectedCompanyId(a.companyId); setActiveTab('companies'); }} className="btn-premium px-5 py-2.5 text-[9px] uppercase shadow-md">Detalle</button>
-                                            )}
+                                            ) : ( <button onClick={() => { setSelectedCompanyId(a.companyId); setActiveTab('companies'); }} className="btn-premium px-5 py-2.5 text-[9px] uppercase shadow-md">Detalle</button> )}
                                         </div>
                                     </div>
                                 );
@@ -523,12 +431,19 @@ const App = () => {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 leading-none">
                             {companies.map(emp => (
-                                <div key={emp.id} className="glass-card p-6 flex flex-col min-h-[300px] transition-all leading-none">
+                                <div key={emp.id} className="glass-card p-6 flex flex-col min-h-[300px] transition-all leading-none relative group">
+                                    {/* CONTROLES ADMIN (Clientes) */}
+                                    {role === 'admin' && (
+                                        <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onClick={() => { setSelectedCompanyId(emp.id); setForm({nombre: emp.nombre, cuit: emp.cuit, responsable: emp.responsable, tankCapacity: emp.tankCapacity}); setModalType('edit_company'); }} className="p-2 bg-slate-100 hover:bg-yellow-400 text-slate-400 hover:text-black rounded-lg transition-all shadow-sm"><Icon name="settings" size={14}/></button>
+                                            <button onClick={() => handleDeleteCompany(emp.id)} className="p-2 bg-slate-100 hover:bg-red-500 text-slate-400 hover:text-white rounded-lg transition-all shadow-sm"><Icon name="x" size={14}/></button>
+                                        </div>
+                                    )}
                                     <div className="flex justify-between items-start mb-6 leading-none">
                                         <div className="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center text-yellow-400 shadow-xl"><Icon name="company" size={24}/></div>
                                         <FuelTankCapsule capacity={emp.tankCapacity || 1000} current={emp.currentFuel || 0} />
                                     </div>
-                                    <h3 className="text-xl font-black uppercase italic mb-1.5 truncate tracking-tight leading-none">{emp.nombre}</h3>
+                                    <h3 className="text-xl font-black uppercase italic mb-1.5 truncate tracking-tight leading-none pr-14">{emp.nombre}</h3>
                                     <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-8 leading-none">CUIT: {emp.cuit}</p>
                                     <div className="mt-auto flex gap-3 leading-none">
                                         <button onClick={() => setSelectedCompanyId(emp.id)} className="flex-1 btn-premium py-3.5 text-[9px] uppercase tracking-widest shadow-md">Ver Flota</button>
@@ -541,8 +456,7 @@ const App = () => {
                 )}
 
                 {activeTab === 'config' && role === 'admin' && (
-                    <div className="max-w-3xl mx-auto space-y-10 animate-fade-in pt-10 lg:pt-0 leading-none pb-20">
-                        
+                    <div className="max-w-4xl mx-auto space-y-10 animate-fade-in pt-10 lg:pt-0 leading-none pb-20">
                         <div className="space-y-6">
                             <h2 className="text-4xl font-black uppercase italic tracking-tighter leading-none">Configuración</h2>
                             <div className="glass-card p-10 space-y-8 shadow-2xl leading-none">
@@ -559,14 +473,40 @@ const App = () => {
                             </div>
                         </div>
 
+                        {/* PANEL DE CONTROL DE USUARIOS (NUEVO) */}
                         <div className="space-y-6 pt-6">
-                            <h2 className="text-2xl font-black uppercase italic tracking-tighter leading-none">Gestión de Accesos</h2>
-                            <div className="glass-card p-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-2xl bg-slate-900 text-white border-slate-800">
+                            <div className="flex justify-between items-end border-b pb-4">
                                 <div>
-                                    <h3 className="text-lg font-black uppercase italic text-yellow-400">Directorio de Usuarios</h3>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Crear nuevos Operarios o Administradores</p>
+                                    <h2 className="text-2xl font-black uppercase italic tracking-tighter leading-none text-slate-900">Control de Accesos</h2>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Roles y Permisos Globales</p>
                                 </div>
-                                <button onClick={() => setModalType('register_user')} className="btn-accent px-8 py-4 text-[9px] uppercase shadow-xl w-full md:w-auto">Agregar Usuario</button>
+                                <button onClick={() => setModalType('register_user')} className="btn-accent px-6 py-3 text-[9px] uppercase shadow-lg">Agregar Usuario</button>
+                            </div>
+                            
+                            <div className="glass-card overflow-hidden">
+                                <table className="w-full text-left history-table">
+                                    <thead>
+                                        <tr><th>ID Acceso (Email)</th><th>Permisos</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        {usersList.map(u => (
+                                            <tr key={u.uid} className="hover:bg-slate-50 transition-all">
+                                                <td className="font-black text-slate-700 italic">{u.email}</td>
+                                                <td>
+                                                    <select 
+                                                        value={u.role} 
+                                                        onChange={(e) => handleUpdateUserRole(u.uid, e.target.value)}
+                                                        className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-lg border-2 appearance-none cursor-pointer outline-none transition-all ${u.role === 'admin' ? 'border-yellow-400 bg-yellow-50 text-yellow-700' : u.role === 'suspendido' ? 'border-red-500 bg-red-50 text-red-600' : 'border-slate-200 bg-white text-slate-600'}`}
+                                                    >
+                                                        <option value="operario">Operario (Limitado)</option>
+                                                        <option value="admin">Administrador (Total)</option>
+                                                        <option value="suspendido">Bloquear Acceso (Suspender)</option>
+                                                    </select>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -587,14 +527,22 @@ const App = () => {
                                 const perc = Math.max(0, 100 - (hsCiclo / (parseFloat(v.serviceInterval) || 250) * 100));
                                 const isExp = expandedVehicles.has(v.id);
                                 return (
-                                    <div key={v.id} className="glass-card p-6 sm:p-8 relative overflow-hidden border border-slate-100 transition-all leading-none">
+                                    <div key={v.id} className="glass-card p-6 sm:p-8 relative overflow-hidden border border-slate-100 transition-all leading-none group">
+                                        {/* CONTROLES ADMIN (Maquinaria) */}
+                                        {role === 'admin' && (
+                                            <div className="absolute top-8 right-5 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                                <button onClick={() => { setActiveVehicleId(v.id); setForm({nombre: v.nombre, marca: v.marca, modelo: v.modelo, serie: v.serie, patente: v.patente, serviceInterval: v.serviceInterval}); setModalType('edit_vehicle'); }} className="p-2 bg-white border hover:bg-yellow-400 text-slate-400 hover:text-black rounded-lg transition-all shadow-sm"><Icon name="settings" size={12}/></button>
+                                                <button onClick={() => handleDeleteVehicle(v.id)} className="p-2 bg-white border hover:bg-red-500 text-slate-400 hover:text-white rounded-lg transition-all shadow-sm"><Icon name="x" size={12}/></button>
+                                            </div>
+                                        )}
+                                        
                                         <div className={`absolute top-0 right-0 px-5 py-1.5 text-[7px] font-black uppercase italic tracking-widest rounded-bl-xl leading-none ${v.operativo ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600 animate-pulse'}`}>{v.operativo ? '● ACTIVO' : '● ROTURA'}</div>
                                         <div className="flex flex-col xl:flex-row gap-8 leading-none">
                                             <div className="flex-1 space-y-6 leading-none">
-                                                <div className="flex items-center gap-5 leading-none"><div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-800 shadow-inner border border-slate-100"><Icon name="truck" size={20}/></div><div className="truncate w-full leading-none"><h4 className="text-xl font-black italic tracking-tighter mb-1.5 uppercase leading-none">{v.nombre}</h4><div className="flex items-center gap-4 leading-none"><span className="mono font-black text-lg leading-none">{(v.horometroTotal || 0).toLocaleString()} <span className="text-[9px] text-slate-300 font-bold ml-0.5">HS</span></span><div className="flex gap-2 border-l pl-4 border-slate-100 leading-none"><button onClick={() => downloadPDF(activeCompany, v)} className="p-1.5 bg-slate-50 rounded-lg hover:bg-slate-900 hover:text-white transition-all shadow-sm"><Icon name="download" size={14}/></button><button onClick={() => { setActiveVehicleId(v.id); setModalType('qr'); setTimeout(() => generateQR(v.id), 100); }} className="p-1.5 bg-slate-50 rounded-lg hover:bg-yellow-400 transition-all shadow-sm"><Icon name="qr" size={14}/></button></div></div></div></div>
+                                                <div className="flex items-center gap-5 leading-none mt-2"><div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-800 shadow-inner border border-slate-100"><Icon name="truck" size={20}/></div><div className="truncate w-full leading-none"><h4 className="text-xl font-black italic tracking-tighter mb-1.5 uppercase leading-none pr-20">{v.nombre}</h4><div className="flex items-center gap-4 leading-none"><span className="mono font-black text-lg leading-none">{(v.horometroTotal || 0).toLocaleString()} <span className="text-[9px] text-slate-300 font-bold ml-0.5">HS</span></span><div className="flex gap-2 border-l pl-4 border-slate-100 leading-none"><button onClick={() => downloadPDF(activeCompany, v)} className="p-1.5 bg-slate-50 rounded-lg hover:bg-slate-900 hover:text-white transition-all shadow-sm"><Icon name="download" size={14}/></button><button onClick={() => { setActiveVehicleId(v.id); setModalType('qr'); setTimeout(() => generateQR(v.id), 100); }} className="p-1.5 bg-slate-50 rounded-lg hover:bg-yellow-400 transition-all shadow-sm"><Icon name="qr" size={14}/></button></div></div></div></div>
                                                 <div className="space-y-2.5 leading-none"><div className="flex justify-between items-end leading-none"><p className="text-[8px] font-black uppercase italic text-slate-400 tracking-widest leading-none">Estado Ciclo ({v.serviceInterval}h)</p><p className={`text-md font-black mono leading-none ${perc < 25 ? 'text-red-600' : 'text-slate-900'}`}>{perc.toFixed(0)}%</p></div><div className="h-1.5 w-full bg-slate-50 rounded-full overflow-hidden shadow-inner leading-none"><div className={`h-full transition-all duration-1000 ${perc < 25 ? 'bg-red-500' : 'bg-slate-900'}`} style={{width: `${perc}%`}}></div></div></div>
                                             </div>
-                                            <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-1 xl:w-48 gap-2.5 shrink-0 text-center leading-none">
+                                            <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-1 xl:w-48 gap-2.5 shrink-0 text-center leading-none mt-2">
                                                 <button onClick={() => { setActiveVehicleId(v.id); setModalType('log'); }} className="p-2.5 bg-slate-900 text-white rounded-lg font-black text-[7px] uppercase hover:bg-yellow-400 hover:text-black transition-all">Cargar</button>
                                                 <button onClick={() => { setActiveVehicleId(v.id); setForm({...form, horas: v.horometroTotal}); setModalType('historical'); }} className="p-2.5 bg-white border border-slate-200 rounded-lg font-black text-[7px] uppercase hover:bg-slate-50 transition-all shadow-sm">Historial</button>
                                                 <button onClick={() => handleToggleStatus(v.id, v.operativo)} className={`p-2.5 rounded-lg font-black text-[7px] uppercase transition-all shadow-sm ${v.operativo ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-emerald-500 text-white'}`}>{v.operativo ? 'Rotura' : 'Revivir'}</button>
@@ -652,7 +600,9 @@ const App = () => {
                 <ModalComp 
                     title={
                         modalType === 'company' ? "Nuevo Cliente" : 
+                        modalType === 'edit_company' ? "Modificar Cliente" :
                         modalType === 'vehicle' ? "Alta Maquinaria" : 
+                        modalType === 'edit_vehicle' ? "Modificar Equipo" :
                         modalType === 'log' ? "Bitácora" : 
                         modalType === 'details' ? "Analítica" : 
                         modalType === 'service' ? "Certificación" : 
@@ -663,10 +613,7 @@ const App = () => {
                         modalType === 'register_user' ? "Nuevo Usuario" :
                         modalType === 'force_password_change' ? "" : "BND Módulo"
                     } 
-                    onClose={() => {
-                        // Impedimos cerrar el modal si es el cambio obligatorio de contraseña
-                        if(modalType !== 'force_password_change') setModalType(null);
-                    }}
+                    onClose={() => { if(modalType !== 'force_password_change') setModalType(null); }}
                     hideClose={modalType === 'force_password_change'}
                 >
                     
@@ -676,12 +623,12 @@ const App = () => {
                             <div className="space-y-1 leading-none"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Contraseña Temporal</label><input type="text" className="w-full input-premium shadow-sm leading-none" placeholder="Min. 6 caracteres" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} /></div>
                             <div className="space-y-1 leading-none">
                                 <label className="text-[9px] font-black uppercase text-slate-400 ml-2">Rol del Sistema</label>
-                                <select className="w-full input-premium shadow-sm leading-none appearance-none" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}>
-                                    <option value="operario">Operario (Solo Carga)</option>
-                                    <option value="admin">Administrador (Acceso Total)</option>
+                                <select className="w-full input-premium shadow-sm leading-none appearance-none font-bold" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}>
+                                    <option value="operario">Operario (Limitado)</option>
+                                    <option value="admin">Administrador (Total)</option>
                                 </select>
                             </div>
-                            <button onClick={handleRegisterUser} disabled={!newUser.email || newUser.password.length < 6} className="btn-accent w-full p-4 text-[9px] uppercase shadow-lg shadow-sm mt-4 leading-none">Crear Cuenta</button>
+                            <button onClick={handleRegisterUser} disabled={!newUser.email || newUser.password.length < 6} className="btn-accent w-full p-4 text-[9px] uppercase shadow-lg shadow-sm mt-4 leading-none">Crear Cuenta y Obligar Cambio</button>
                         </div>
                     )}
 
@@ -712,6 +659,15 @@ const App = () => {
                         </div>
                     )}
 
+                    {modalType === 'edit_company' && (
+                        <div className="space-y-6 leading-none">
+                            <div className="space-y-1 leading-none"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Nombre Comercial</label><input className="w-full input-premium font-black uppercase shadow-sm leading-none" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} /></div>
+                            <div className="grid grid-cols-2 gap-4 leading-none"><input className="w-full input-premium shadow-sm leading-none" placeholder="CUIT" value={form.cuit} onChange={e => setForm({...form, cuit: e.target.value})} /><input className="w-full input-premium shadow-sm leading-none" placeholder="Responsable" value={form.responsable} onChange={e => setForm({...form, responsable: e.target.value})} /></div>
+                            <div className="space-y-1 leading-none"><label className="text-[9px] font-black uppercase text-slate-400 italic ml-2">Capacidad Depósito (Lts)</label><input type="number" className="w-full input-premium shadow-sm leading-none" value={form.tankCapacity} onChange={e => setForm({...form, tankCapacity: e.target.value})} /></div>
+                            <button onClick={handleEditCompanySubmit} className="btn-premium w-full p-4 text-[9px] uppercase shadow-lg shadow-sm mt-4 leading-none">Guardar Cambios</button>
+                        </div>
+                    )}
+
                     {modalType === 'vehicle' && (
                         <div className="space-y-5 leading-none">
                             <div className="space-y-1 leading-none"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Interno / Nombre</label><input className="w-full input-premium text-lg font-black italic uppercase text-slate-900 shadow-sm leading-none" placeholder="BND-01" onChange={e => setForm({...form, nombre: e.target.value})} /></div>
@@ -724,6 +680,20 @@ const App = () => {
                                 <div className="space-y-1"><label className="text-[9px] font-black uppercase italic">Horas Iniciales</label><input type="number" className="w-full input-premium mono shadow-sm" onChange={e => setForm({...form, horometro: e.target.value})} /></div>
                             </div>
                             <button onClick={handleAddVehicle} className="btn-premium w-full p-4 text-[9px] uppercase mt-4 shadow-lg">Vincular Maquinaria</button>
+                        </div>
+                    )}
+
+                    {modalType === 'edit_vehicle' && (
+                        <div className="space-y-5 leading-none">
+                            <div className="space-y-1 leading-none"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Interno / Nombre</label><input className="w-full input-premium text-lg font-black italic uppercase text-slate-900 shadow-sm leading-none" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} /></div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <input className="w-full input-premium shadow-sm" placeholder="Marca" value={form.marca} onChange={e => setForm({...form, marca: e.target.value})} />
+                                <input className="w-full input-premium shadow-sm" placeholder="Modelo" value={form.modelo} onChange={e => setForm({...form, modelo: e.target.value})} />
+                                <input className="w-full input-premium shadow-sm" placeholder="Serie" value={form.serie} onChange={e => setForm({...form, serie: e.target.value})} />
+                                <input className="w-full input-premium shadow-sm" placeholder="Patente" value={form.patente} onChange={e => setForm({...form, patente: e.target.value})} />
+                                <div className="space-y-1"><label className="text-[9px] font-black uppercase italic">Ciclo HS</label><input type="number" className="w-full input-premium shadow-sm" value={form.serviceInterval} onChange={e => setForm({...form, serviceInterval: e.target.value})} /></div>
+                            </div>
+                            <button onClick={handleEditVehicleSubmit} className="btn-premium w-full p-4 text-[9px] uppercase mt-4 shadow-lg">Guardar Cambios</button>
                         </div>
                     )}
 
