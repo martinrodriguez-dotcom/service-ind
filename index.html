@@ -184,5 +184,14 @@
         };
         mountApp();
     </script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('BND: Service Worker registrado', reg))
+                    .catch(err => console.error('BND: Error al registrar SW', err));
+            });
+        }
+    </script>
 </body>
 </html>
