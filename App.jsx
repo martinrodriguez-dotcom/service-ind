@@ -178,7 +178,33 @@ const App = () => {
         return list.sort((a,b) => (a.estDate || Infinity) - (b.estDate || Infinity));
     }, [companies]);
 
+    // --- GRÁFICOS ---
+    useEffect(() => {
+        if (modalType === 'details' && activeCompany && chartRef.current) {
+            const ctx = chartRef.current.getContext('2d');
+            let allEvents = activeCompany.vehiculos.flatMap(v => (v.eventos || []).filter(e => e.litros > 0));
+            const labels = Array.from({length: 6}, (_, i) => { const d = new Date(); d.setMonth(d.getMonth() - (5 - i)); return d.toISOString().substring(0, 7); });
+            const dataPoints = labels.map(m => allEvents.filter(e => e.fecha && e.fecha.startsWith(m)).reduce((sum, e) => sum + parseFloat(e.litros || 0), 0));
+            
+            if (window.myChartCompVFinal) window.myChartCompVFinal.destroy();
+            window.myChartCompVFinal = new window.Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels.map(m => ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"][parseInt(m.split('-')[1])-1]),
+                    datasets: [{ label: 'Diésel (L)', data: dataPoints, borderColor: '#fbbf24', backgroundColor: 'rgba(251, 191, 36, 0.05)', fill: true, tension: 0.4, borderWidth: 3 }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+        }
+    }, [modalType, activeCompany]);
+
     // --- OPERACIONES ADMIN (CRUD) ---
+    const saveBndSettings = async () => {
+        const docRef = fb.doc(db, "artifacts", APP_ID, "public", "data", "config", "bnd_info");
+        await fb.setDoc(docRef, bndSettings);
+        setActiveTab('dashboard');
+    };
+
     const handleDeleteCompany = async (id) => {
         if(confirm("Se eliminará la empresa y su flota. ¿Confirmar?")) {
             await fb.deleteDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", id));
@@ -204,6 +230,20 @@ const App = () => {
             ...v, nombre: form.nombre, marca: form.marca, modelo: form.modelo, serie: form.serie, patente: form.patente, serviceInterval: parseFloat(form.serviceInterval)
         } : v);
         await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: updated });
+        setModalType(null);
+    };
+
+    const handleAddCompany = async () => {
+        if(!form.nombre) return;
+        const coll = fb.collection(db, "artifacts", APP_ID, "public", "data", "companies");
+        await fb.addDoc(coll, { nombre: form.nombre, cuit: form.cuit, responsable: form.responsable, tankCapacity: parseFloat(form.tankCapacity) || 1000, currentFuel: parseFloat(form.tankCapacity) || 1000, vehiculos: [] });
+        setModalType(null); setForm({...form, nombre: '', cuit: '', responsable: ''});
+    };
+
+    const handleAddVehicle = async () => {
+        const h = parseFloat(form.horometro) || 0;
+        const v = { id: Date.now().toString(), ...form, horometroTotal: h, ultimoServiceHoras: h, operativo: true, workflowStatus: 'PENDIENTE', eventos: [{ id: Date.now(), tipo: 'ALTA', fecha: new Date().toLocaleDateString(), horas: h, nota: 'Alta inicial' }] };
+        await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: fb.arrayUnion(v) });
         setModalType(null);
     };
 
@@ -243,17 +283,22 @@ const App = () => {
         setModalType(null); setActiveTab('companies');
     };
 
-    const handleServiceReset = async () => {
-        const v = activeCompany.vehiculos.find(x => x.id === activeVehicleId);
-        const updated = activeCompany.vehiculos.map(x => x.id === activeVehicleId ? { ...x, ultimoServiceHoras: x.horometroTotal, eventos: [...(x.eventos || []), { id: Date.now(), tipo: 'SERVICE', fecha: new Date().toLocaleDateString(), horas: x.horometroTotal, insumos: form.insumos, nota: form.nota }] } : x);
+    const handleHistoricalData = async () => {
+        const h = parseFloat(form.horas); if(isNaN(h)) return;
+        const updated = activeCompany.vehiculos.map(v => v.id === activeVehicleId ? { ...v, horometroTotal: Math.max(v.horometroTotal, h), eventos: [...(v.eventos || []), { id: Date.now(), tipo: 'REGISTRO', fecha: form.fecha, horas: h, nota: "Sincronización Histórica" }] } : v);
         await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: updated });
         setModalType(null);
     };
 
-    const handleAddVehicle = async () => {
-        const h = parseFloat(form.horometro) || 0;
-        const v = { id: Date.now().toString(), ...form, horometroTotal: h, ultimoServiceHoras: h, operativo: true, workflowStatus: 'PENDIENTE', eventos: [{ id: Date.now(), tipo: 'ALTA', fecha: new Date().toLocaleDateString(), horas: h, nota: 'Alta inicial' }] };
-        await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: fb.arrayUnion(v) });
+    const handleServiceReset = async () => {
+        const v = activeCompany.vehiculos.find(x => x.id === activeVehicleId);
+        const updated = activeCompany.vehiculos.map(x => x.id === activeVehicleId ? { ...x, ultimoServiceHoras: x.horometroTotal, eventos: [...(x.eventos || []), { id: Date.now(), tipo: 'SERVICE', fecha: new Date().toLocaleDateString(), horas: x.horometroTotal, insumos: form.insumos, nota: form.nota }] } : x);
+        await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: updated });
+        setModalType(null); setForm({...form, insumos: [], nota: ''});
+    };
+
+    const refillTank = async () => {
+        await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { currentFuel: activeCompany.tankCapacity });
         setModalType(null);
     };
 
@@ -477,7 +522,7 @@ const App = () => {
                         </div>
                     )}
 
-                    {/* VISTA: CONFIGURACIÓN Y ROLES */}
+                    {/* VISTA: CONFIGURACIÓN Y ROLES (SOLO ADMIN) */}
                     {activeTab === 'config' && role === 'admin' && (
                         <div className="max-w-4xl mx-auto space-y-12 animate-fade-in">
                             <div className="space-y-6">
@@ -486,6 +531,11 @@ const App = () => {
                                     <div className="grid grid-cols-1 gap-6">
                                         <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2 tracking-widest">Razón Social</label><input className="w-full input-premium font-black text-xl" value={bndSettings.name} onChange={e => setBndSettings({...bndSettings, name: e.target.value})} /></div>
                                         <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2 tracking-widest">Descripción</label><input className="w-full input-premium" value={bndSettings.description} onChange={e => setBndSettings({...bndSettings, description: e.target.value})} /></div>
+                                        <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2 tracking-widest">Dirección Física</label><input className="w-full input-premium" value={bndSettings.address} onChange={e => setBndSettings({...bndSettings, address: e.target.value})} /></div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2 tracking-widest">Teléfono</label><input className="w-full input-premium" value={bndSettings.phone} onChange={e => setBndSettings({...bndSettings, phone: e.target.value})} /></div>
+                                            <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400 ml-2 tracking-widest">Email</label><input className="w-full input-premium" value={bndSettings.email} onChange={e => setBndSettings({...bndSettings, email: e.target.value})} /></div>
+                                        </div>
                                     </div>
                                     <button onClick={saveBndSettings} className="btn-premium w-full text-lg uppercase shadow-2xl shadow-slate-300">Guardar Cambios</button>
                                 </div>
@@ -681,6 +731,14 @@ const App = () => {
                         </div>
                     )}
 
+                    {modalType === 'historical' && (
+                        <div className="space-y-6 animate-fade-in">
+                            <div className="p-4 bg-slate-50 border rounded-xl text-xs font-bold text-slate-400 italic">Carga de registros históricos. Sincroniza el horómetro total.</div>
+                            <div className="grid grid-cols-2 gap-4"><input className="input-premium" type="date" value={form.fecha} onChange={e => setForm({...form, fecha: e.target.value})} /><input className="input-premium" type="number" placeholder="HS Totales" value={form.horas} onChange={e => setForm({...form, horas: e.target.value})} /></div>
+                            <button onClick={handleHistoricalData} className="btn-premium w-full mt-4 uppercase">Sincronizar Historial</button>
+                        </div>
+                    )}
+
                     {modalType === 'qr' && (
                         <div className="space-y-10 text-center flex flex-col items-center animate-fade-in py-10">
                             <div className="p-12 bg-white rounded-[3.5rem] shadow-2xl border-4 border-slate-900" id={`qr-container-${activeVehicleId}`}></div>
@@ -694,9 +752,9 @@ const App = () => {
 
                     {modalType === 'details' && (
                         <div className="space-y-10">
-                            <div className="bg-slate-900 p-10 rounded-[2.5rem] flex justify-between items-center shadow-2xl border-l-[15px] border-l-yellow-400">
-                                <div><p className="text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-2 italic">Stock Depósito Central</p><p className="text-5xl font-black text-white mono">{(activeCompany.currentFuel || 0).toLocaleString()} <span className="text-sm opacity-30">L</span></p></div>
-                                <button onClick={() => { if(confirm("¿Cargar depósito al 100%?")) refillTank(); }} className="btn-accent px-6 shadow-xl shadow-yellow-400/10">CARGAR</button>
+                            <div className="bg-slate-900 p-10 rounded-[2.5rem] flex flex-col md:flex-row justify-between items-center gap-6 shadow-2xl border-l-[15px] border-l-yellow-400">
+                                <div className="text-center md:text-left"><p className="text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-2 italic">Stock Depósito Central</p><p className="text-5xl font-black text-white mono">{(activeCompany.currentFuel || 0).toLocaleString()} <span className="text-sm opacity-30">L</span></p></div>
+                                {role === 'admin' && <button onClick={() => { if(confirm("¿Cargar depósito al 100%?")) refillTank(); }} className="btn-accent px-8 py-4 shadow-xl shadow-yellow-400/10 w-full md:w-auto">CARGAR</button>}
                             </div>
                             <div className="space-y-4">
                                 <p className="text-xs font-black uppercase italic text-slate-400 ml-4">Consumo Mensual Proyectado</p>
