@@ -1,9 +1,11 @@
-const CACHE_NAME = 'bnd-v1';
+// Aumentamos la versión para forzar la actualización en los celulares
+const CACHE_NAME = 'bnd-v2';
 
-// Lista de archivos vitales para que la app funcione offline o cargue rápido
+// Sumamos style.css a la lista de archivos offline
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
+  './style.css',
   './firebaseConfig.js',
   './Icons.jsx',
   './Components.jsx',
@@ -12,7 +14,6 @@ const ASSETS_TO_CACHE = [
   './icon.png'
 ];
 
-// 1. EVENTO DE INSTALACIÓN: Guarda los archivos en la memoria del dispositivo
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -23,7 +24,6 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// 2. EVENTO DE ACTIVACIÓN: Limpia versiones viejas de la app si las hubiera
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -40,13 +40,10 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// 3. EVENTO FETCH: Intercepta las peticiones para servir los archivos desde el caché
 self.addEventListener('fetch', (event) => {
-  // Solo interceptamos peticiones de archivos locales
-  if (event.request.mode === 'navigate' || ASSETS_TO_CACHE.includes(event.request.url)) {
+  if (event.request.mode === 'navigate' || ASSETS_TO_CACHE.includes(event.request.url.replace(self.location.origin, '.'))) {
     event.respondWith(
       caches.match(event.request).then((response) => {
-        // Retorna el archivo del caché o lo busca en internet si no está
         return response || fetch(event.request);
       })
     );
