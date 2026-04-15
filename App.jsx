@@ -1,8 +1,12 @@
 const { useState, useEffect, useMemo, useRef } = React;
-const { Icon, FuelTankCapsule, db, auth, APP_ID, fb, FIREBASE_API_KEY } = window;
-const { DashboardView, CompaniesView, CompanyDetailView, ConfigView, CalendarView, MetricsView } = window.AppViews;
 
 const App = () => {
+    // 1. IMPORTACIONES SEGURAS: Las leemos aquí adentro para evitar que crashee
+    // si el navegador se demora un milisegundo en cargar los otros archivos.
+    const { Icon, db, auth, APP_ID, fb, FIREBASE_API_KEY } = window;
+    const { DashboardView, CompaniesView, CompanyDetailView, ConfigView, CalendarView, MetricsView } = window.AppViews;
+    const AppModals = window.AppModals;
+
     // --- ESTADOS DE AUTENTICACIÓN Y ROLES ---
     const [user, setUser] = useState(null);
     const [role, setRole] = useState(null); 
@@ -37,7 +41,7 @@ const App = () => {
     const [expandedInfo, setExpandedInfo] = useState({});
     
     const scannerRef = useRef(null);
-    const chartRef = useRef(null); // Para el gráfico de detalles
+    const chartRef = useRef(null); 
 
     const [bndSettings, setBndSettings] = useState({
         name: "BND", description: "Gestión de Activos Industriales",
@@ -243,7 +247,6 @@ const App = () => {
         return { fuelEstDate, fuelAvg, criticalLiters, currentFuel, vProjs };
     }, [activeCompany]);
 
-    // --- CÁLCULOS MÓDULO INTELIGENCIA ---
     const intelligenceData = useMemo(() => {
         let allVehicles = [];
         let eventCounts = { REGISTRO: 0, SERVICE: 0, REPARACION: 0, BAJA: 0 };
@@ -302,7 +305,8 @@ const App = () => {
     const handleDailyLog = async () => {
         const h = parseFloat(form.horas); const l = parseFloat(form.litros);
         const updatedVehicles = activeCompany.vehiculos.map(v => v.id === activeVehicleId ? { ...v, horometroTotal: h, eventos: [...(v.eventos || []), { id: Date.now(), tipo: 'REGISTRO', fecha: form.fecha, horas: h, litros: l, nota: form.nota }] } : v);
-        await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: updatedVehicles, currentFuel: Math.max(0, activeCompany.currentFuel - l) });
+        const newFuel = Math.max(0, activeCompany.currentFuel - l);
+        await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: updatedVehicles, currentFuel: newFuel });
         setModalType(null); setForm({...form, horas: '', litros: '', nota: ''});
     };
     const handleToggleStatus = async (vId, active) => { if(active) { setActiveVehicleId(vId); setModalType('downtime'); } else { await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: activeCompany.vehiculos.map(v => v.id === vId ? { ...v, operativo: true, workflowStatus: 'PENDIENTE', eventos: [...(v.eventos || []), { id: Date.now(), tipo: 'ALTA', fecha: new Date().toLocaleDateString(), nota: 'Puesta en marcha manual' }] } : v) }); } };
@@ -313,7 +317,7 @@ const App = () => {
     const handleServiceReset = async () => { await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: activeCompany.vehiculos.map(x => x.id === activeVehicleId ? { ...x, ultimoServiceHoras: x.horometroTotal, eventos: [...(x.eventos || []), { id: Date.now(), tipo: 'SERVICE', fecha: new Date().toLocaleDateString(), horas: x.horometroTotal, insumos: form.insumos, nota: form.nota }] } : x) }); setModalType(null); setForm({...form, insumos: [], nota: ''}); };
     const refillTank = async () => { await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { currentFuel: activeCompany.tankCapacity }); setModalType(null); };
 
-    // --- UTILIDADES ---
+    // --- UTILIDADES PDF Y CÓDIGO QR ---
     const downloadPDF = (company, vehicle) => {
         const { jsPDF } = window.jspdf; const doc = new jsPDF();
         doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 40, 'F'); doc.setTextColor(255, 255, 255); doc.setFontSize(24); doc.text("BND", 15, 25); doc.setFontSize(10); doc.text(bndSettings.description, 15, 33);
@@ -327,14 +331,22 @@ const App = () => {
         setScannerActive(true);
         setTimeout(() => {
             scannerRef.current = new window.Html5Qrcode("reader");
-            scannerRef.current.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 }, (txt) => {
-                if (txt.startsWith("sp-asset:")) { 
-                    const [_, cid, vid] = txt.split(":"); 
-                    if (role === 'operario' && cid !== userCompanyId) { alert("Acceso denegado."); setScannerActive(false); scannerRef.current.stop(); return; }
-                    setSelectedCompanyId(cid); setIsolatedVehicleId(vid); setActiveVehicleId(vid); setActiveTab('companies'); setScannerActive(false); scannerRef.current.stop(); 
-                    setTimeout(() => setModalType('log'), 500);
-                }
-            }, (err) => {}).catch(e => console.error(e));
+            scannerRef.current.start(
+                { facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 }, 
+                (txt) => {
+                    if (txt.startsWith("sp-asset:")) { 
+                        const [_, cid, vid] = txt.split(":"); 
+                        if (role === 'operario' && cid !== userCompanyId) {
+                            alert("Acceso denegado: Este equipo no pertenece a tu flota.");
+                            setScannerActive(false); scannerRef.current.stop(); return;
+                        }
+                        setSelectedCompanyId(cid); setIsolatedVehicleId(vid); setActiveVehicleId(vid); setActiveTab('companies'); 
+                        setScannerActive(false); scannerRef.current.stop(); 
+                        setTimeout(() => setModalType('log'), 500);
+                    }
+                }, 
+                (err) => {}
+            ).catch(e => console.error("Error cámara:", e));
         }, 500);
     };
 
@@ -361,13 +373,13 @@ const App = () => {
     if (!user) return (
         <div className="flex h-[100dvh] items-center justify-center bg-slate-900 px-4 md:px-6 select-none w-full" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
             <div className="glass-card p-8 md:p-12 w-full max-w-sm md:max-w-md bg-white/5 backdrop-blur-2xl border-white/10 text-center">
-                <img src="./icon.png" alt="BND Logo" className="w-20 h-20 md:w-24 md:h-24 mx-auto mb-6 rounded-2xl shadow-2xl object-cover" />
+                <img src="./icon.png" alt="BND Logo" className="w-20 h-20 md:w-24 md:h-24 mx-auto mb-6 rounded-2xl shadow-2xl shadow-yellow-400/20 object-cover" />
                 <h1 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter mb-2">BND</h1>
                 <p className="text-[9px] md:text-xs font-black text-slate-500 uppercase tracking-widest mb-8 md:mb-10">Control de Activos</p>
                 {loginError && <p className="bg-red-500/20 text-red-400 text-[10px] md:text-xs font-bold p-3 rounded-xl mb-6 border border-red-500/30 uppercase">{loginError}</p>}
                 <form onSubmit={handleLogin} className="space-y-4">
-                    <input type="email" required className="input-premium px-5 py-3 w-full rounded-xl bg-white/10 border-none text-white text-center text-sm font-bold" placeholder="USUARIO" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} />
-                    <input type="password" required className="input-premium px-5 py-3 w-full rounded-xl bg-white/10 border-none text-white text-center text-sm font-bold" placeholder="PASSWORD" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} />
+                    <input type="email" required className="input-premium px-5 py-3 w-full rounded-xl bg-white/10 border-none text-white text-center text-sm md:text-base font-bold" placeholder="USUARIO" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} />
+                    <input type="password" required className="input-premium px-5 py-3 w-full rounded-xl bg-white/10 border-none text-white text-center text-sm md:text-base font-bold" placeholder="PASSWORD" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} />
                     <button type="submit" className="btn-accent w-full px-5 py-3 rounded-xl text-sm font-black mt-4 uppercase shadow-lg">Entrar</button>
                 </form>
             </div>
@@ -385,6 +397,7 @@ const App = () => {
         nav.push({ id: 'calendar', label: 'Mis Proyecciones', icon: 'calendar' });
     }
 
+    // --- INTERFAZ PRINCIPAL ---
     return (
         <div className="flex h-[100dvh] bg-slate-50 overflow-hidden select-none w-full" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}>
             {sidebarOpen && <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[190] lg:hidden" onClick={() => setSidebarOpen(false)} />}
@@ -426,7 +439,7 @@ const App = () => {
             </main>
 
             {/* INYECCIÓN DINÁMICA DE MODALES DESDE AppModals.jsx */}
-            <window.AppModals 
+            <AppModals 
                 modalType={modalType} setModalType={setModalType} role={role} companies={companies} 
                 activeCompany={activeCompany} activeVehicle={activeVehicle} activeVehicleId={activeVehicleId} 
                 form={form} setForm={setForm} newUser={newUser} setNewUser={setNewUser} 
