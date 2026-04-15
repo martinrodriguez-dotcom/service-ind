@@ -658,7 +658,7 @@ const App = () => {
                     }
                 }, 
                 (err) => {
-                    // Errores de lectura ignorados en silencio
+                    // Errores de lectura se ignoran en silencio para no saturar la consola
                 }
             ).catch(e => console.error("Error al iniciar cámara:", e));
         }, 500);
@@ -970,31 +970,6 @@ const App = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
                                 {companies.map(emp => (
                                     <div key={emp.id} className="glass-card p-5 relative group">
-                                        {role === 'admin' && (
-                                            <div className="absolute top-3 right-3 flex gap-2">
-                                                <button 
-                                                    onClick={() => { 
-                                                        setSelectedCompanyId(emp.id); 
-                                                        setForm({
-                                                            nombre: emp.nombre, 
-                                                            cuit: emp.cuit, 
-                                                            responsable: emp.responsable, 
-                                                            tankCapacity: emp.tankCapacity
-                                                        }); 
-                                                        setModalType('edit_company'); 
-                                                    }} 
-                                                    className="p-2 bg-slate-100 hover:bg-yellow-400 rounded-lg transition-colors"
-                                                >
-                                                    <Icon name="settings" size={14}/>
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleDeleteCompany(emp.id)} 
-                                                    className="p-2 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-colors"
-                                                >
-                                                    <Icon name="x" size={14}/>
-                                                </button>
-                                            </div>
-                                        )}
                                         <div className="flex justify-between items-start mb-6">
                                             <div className="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center text-yellow-400">
                                                 <Icon name="company" size={20}/>
@@ -1003,15 +978,45 @@ const App = () => {
                                         </div>
                                         <h3 className="text-xl font-black uppercase italic truncate mb-1 pr-12">{emp.nombre}</h3>
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">CUIT: {emp.cuit}</p>
-                                        <button 
-                                            onClick={() => { 
-                                                setSelectedCompanyId(emp.id); 
-                                                setIsolatedVehicleId(null); 
-                                            }} 
-                                            className="btn-premium px-4 py-3 w-full rounded-xl text-sm font-black uppercase shadow-md"
-                                        >
-                                            ABRIR FLOTA
-                                        </button>
+                                        
+                                        <div className="flex gap-2 w-full mt-4">
+                                            <button 
+                                                onClick={() => { 
+                                                    setSelectedCompanyId(emp.id); 
+                                                    setIsolatedVehicleId(null); 
+                                                }} 
+                                                className="btn-premium flex-1 px-4 py-3 rounded-xl text-sm font-black uppercase shadow-md"
+                                            >
+                                                ABRIR FLOTA
+                                            </button>
+                                            
+                                            {/* BOTONES DE ADMIN INTEGRADOS (Evitan superposición) */}
+                                            {role === 'admin' && (
+                                                <>
+                                                    <button 
+                                                        onClick={() => { 
+                                                            setSelectedCompanyId(emp.id); 
+                                                            setForm({
+                                                                nombre: emp.nombre, 
+                                                                cuit: emp.cuit, 
+                                                                responsable: emp.responsable, 
+                                                                tankCapacity: emp.tankCapacity
+                                                            }); 
+                                                            setModalType('edit_company'); 
+                                                        }} 
+                                                        className="px-4 py-3 bg-slate-100 hover:bg-yellow-400 rounded-xl transition-colors flex items-center justify-center"
+                                                    >
+                                                        <Icon name="settings" size={16}/>
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDeleteCompany(emp.id)} 
+                                                        className="px-4 py-3 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-colors flex items-center justify-center"
+                                                    >
+                                                        <Icon name="x" size={16}/>
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -1078,28 +1083,6 @@ const App = () => {
                                     
                                     return (
                                         <div key={v.id} className="glass-card p-5 md:p-6 border-l-[8px] md:border-l-[12px] border-l-yellow-400 relative group">
-                                            {role === 'admin' && (
-                                                <div className="absolute top-3 right-3 md:top-4 md:right-4 flex gap-2">
-                                                    <button 
-                                                        onClick={() => { 
-                                                            setActiveVehicleId(v.id); 
-                                                            setForm({
-                                                                nombre: v.nombre, marca: v.marca, modelo: v.modelo, serie: v.serie, patente: v.patente, serviceInterval: v.serviceInterval
-                                                            }); 
-                                                            setModalType('edit_vehicle'); 
-                                                        }} 
-                                                        className="p-2 bg-slate-50 hover:bg-yellow-400 rounded-lg transition-colors"
-                                                    >
-                                                        <Icon name="settings" size={12}/>
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => handleDeleteVehicle(v.id)} 
-                                                        className="p-2 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-colors"
-                                                    >
-                                                        <Icon name="x" size={12}/>
-                                                    </button>
-                                                </div>
-                                            )}
                                             
                                             <div className="flex flex-col sm:flex-row justify-between gap-5">
                                                 <div className="flex-1 space-y-4 md:space-y-5">
@@ -1127,7 +1110,33 @@ const App = () => {
                                                     </div>
                                                 </div>
                                                 
+                                                {/* BOTONERA DE ACCIONES Y ADMIN (INTEGRADA) */}
                                                 <div className="grid grid-cols-2 sm:grid-cols-1 gap-2 shrink-0 sm:w-32">
+                                                    
+                                                    {/* BOTONES DE ADMIN INTEGRADOS AL GRID */}
+                                                    {role === 'admin' && (
+                                                        <div className="flex gap-2 col-span-2 sm:col-span-1">
+                                                            <button 
+                                                                onClick={() => { 
+                                                                    setActiveVehicleId(v.id); 
+                                                                    setForm({
+                                                                        nombre: v.nombre, marca: v.marca, modelo: v.modelo, serie: v.serie, patente: v.patente, serviceInterval: v.serviceInterval
+                                                                    }); 
+                                                                    setModalType('edit_vehicle'); 
+                                                                }} 
+                                                                className="flex-1 px-3 py-2 bg-slate-100 hover:bg-yellow-400 rounded-xl transition-colors flex items-center justify-center"
+                                                            >
+                                                                <Icon name="settings" size={14}/>
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleDeleteVehicle(v.id)} 
+                                                                className="flex-1 px-3 py-2 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-colors flex items-center justify-center"
+                                                            >
+                                                                <Icon name="x" size={14}/>
+                                                            </button>
+                                                        </div>
+                                                    )}
+
                                                     <button 
                                                         onClick={() => { setActiveVehicleId(v.id); setModalType('log'); }} 
                                                         className="btn-premium px-3 py-2 rounded-xl text-[10px] font-black w-full shadow-sm"
