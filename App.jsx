@@ -1,11 +1,17 @@
-// 1. Extraemos las herramientas de React directamente de la librería global
 const { useState, useEffect, useMemo, useRef } = React;
 
-// 2. Extraemos nuestros componentes y credenciales guardadas en la memoria (window)
 const { Icon, ModalComp, FuelTankCapsule, db, auth, APP_ID, fb } = window;
 
 const App = () => {
+    // ESTADOS DE AUTENTICACIÓN Y ROLES
     const [user, setUser] = useState(null);
+    const [role, setRole] = useState(null); // 'admin' o 'operario'
+    const [authLoading, setAuthLoading] = useState(true);
+    const [loginEmail, setLoginEmail] = useState('');
+    const [loginPassword, setLoginPassword] = useState('');
+    const [loginError, setLoginError] = useState('');
+
+    // ESTADOS DE LA APLICACIÓN
     const [activeTab, setActiveTab] = useState('dashboard');
     const [selectedCompanyId, setSelectedCompanyId] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -34,37 +40,73 @@ const App = () => {
         insumos: [], insumoManual: '', fecha: new Date().toISOString().split('T')[0]
     });
 
-    // --- SINCRONIZACIÓN FIREBASE ---
+    // --- SINCRONIZACIÓN FIREBASE Y VERIFICACIÓN DE ROL ---
     useEffect(() => {
         const initSync = async () => {
             if (!db || !auth) return;
-            fb.onAuthStateChanged(auth, (u) => {
-                setUser(u);
+            fb.onAuthStateChanged(auth, async (u) => {
                 if (u) {
-                    // Carga Configuración
+                    setUser(u);
+                    
+                    // 1. Buscamos el rol del usuario en la base de datos
+                    try {
+                        const userDocRef = fb.doc(db, "artifacts", APP_ID, "public", "data", "users", u.uid);
+                        const userDoc = await fb.getDoc(userDocRef);
+                        if(userDoc.exists()) {
+                            setRole(userDoc.data().role); // 'admin' o 'operario'
+                        } else {
+                            setRole('operario'); // Por defecto, si no tiene rol asignado, es operario
+                        }
+                    } catch (error) {
+                        setRole('operario');
+                    }
+
+                    // 2. Cargamos Configuración
                     const configRef = fb.doc(db, "artifacts", APP_ID, "public", "data", "config", "bnd_info");
                     fb.getDoc(configRef).then(snap => { 
                         if(snap.exists()) setBndSettings(snap.data()); 
                     });
 
-                    // Carga Empresas en Tiempo Real
+                    // 3. Cargamos Empresas
                     const q = fb.collection(db, "artifacts", APP_ID, "public", "data", "companies");
                     const unsub = fb.onSnapshot(q, (snapshot) => {
                         setCompanies(snapshot.docs.map(document => ({ id: document.id, ...document.data() })));
                         setLoading(false);
+                        setAuthLoading(false);
                     });
                     return () => unsub();
                 } else { 
-                    setLoading(false); 
+                    setUser(null);
+                    setRole(null);
+                    setLoading(false);
+                    setAuthLoading(false);
                 }
             });
         };
-        // Verificamos si Firebase ya cargó en el objeto global
+        
         if (window.db) initSync();
         else window.addEventListener('firebase-ready', initSync);
     }, []);
 
-    // --- CÁLCULOS MEMOIZADOS (Alertas) ---
+    // --- FUNCIONES DE AUTENTICACIÓN ---
+    const handleLogin = async (e) => {
+        e.preventDefault();
+        setAuthLoading(true);
+        setLoginError('');
+        try {
+            await fb.signInWithEmailAndPassword(auth, loginEmail, loginPassword);
+        } catch (err) {
+            setLoginError('Credenciales inválidas. Verifica tu correo y contraseña.');
+            setAuthLoading(false);
+        }
+    };
+
+    const handleLogout = async () => {
+        await fb.signOut(auth);
+        setActiveTab('dashboard'); // Reseteamos la vista al salir
+    };
+
+    // --- CÁLCULOS MEMOIZADOS ---
     const alerts = useMemo(() => {
         let list = [];
         companies.forEach(emp => {
@@ -86,7 +128,6 @@ const App = () => {
         return list.sort((a,b) => (a.type === 'BREAKDOWN' ? -1 : 1));
     }, [companies]);
 
-    // --- CÁLCULOS MEMOIZADOS (Proyecciones) ---
     const projectionsData = useMemo(() => {
         let list = [];
         companies.forEach(emp => {
@@ -111,7 +152,7 @@ const App = () => {
 
     const activeCompany = useMemo(() => companies.find(c => c.id === selectedCompanyId), [companies, selectedCompanyId]);
 
-    // --- GRÁFICOS (Chart.js via window) ---
+    // --- GRÁFICOS ---
     useEffect(() => {
         if (modalType === 'details' && activeCompany && chartRef.current) {
             const ctx = chartRef.current.getContext('2d');
@@ -131,7 +172,7 @@ const App = () => {
         }
     }, [modalType, activeCompany]);
 
-    // --- MANEJADORES DE ESTADO Y FIREBASE ---
+    // --- MANEJADORES DE NEGOCIO ---
     const saveBndSettings = async () => {
         const docRef = fb.doc(db, "artifacts", APP_ID, "public", "data", "config", "bnd_info");
         await fb.setDoc(docRef, bndSettings);
@@ -261,9 +302,60 @@ const App = () => {
         setExpandedVehicles(ns); 
     };
 
-    if (loading) return <div className="h-screen flex items-center justify-center bg-white"><div className="w-10 h-10 border-4 border-slate-900 border-t-yellow-400 rounded-full animate-spin"></div></div>;
+    // --- PANTALLA DE CARGA GLOBAL ---
+    if (authLoading || loading) {
+        return (
+            <div className="h-screen flex flex-col items-center justify-center bg-slate-900">
+                <div className="w-12 h-12 border-4 border-slate-700 border-t-yellow-400 rounded-full animate-spin mb-4"></div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Cargando BND Pro...</p>
+            </div>
+        );
+    }
 
-    // --- RENDERIZADO PRINCIPAL ---
+    // --- PANTALLA DE LOGIN ---
+    if (!user) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-slate-900 relative overflow-hidden leading-none">
+                <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-yellow-400/10 blur-[120px] pointer-events-none"></div>
+                <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-blue-500/10 blur-[100px] pointer-events-none"></div>
+                
+                <div className="glass-card p-10 w-full max-w-md relative z-10 mx-4 shadow-2xl border-white/10 bg-white/5 backdrop-blur-xl">
+                    <div className="flex flex-col items-center mb-10">
+                        <div className="w-16 h-16 bg-yellow-400 rounded-2xl flex items-center justify-center shadow-lg shadow-yellow-400/20 mb-5"><Icon name="wrench" size={32} className="text-black"/></div>
+                        <h1 className="text-3xl font-black uppercase italic tracking-tighter text-white leading-none">BND Pro</h1>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Acceso Restringido</p>
+                    </div>
+
+                    {loginError && <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 text-red-400 text-[10px] font-black uppercase tracking-widest rounded-xl text-center leading-relaxed">{loginError}</div>}
+                    
+                    <form onSubmit={handleLogin} className="space-y-6">
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black uppercase text-slate-400 ml-2 tracking-widest">Correo Electrónico</label>
+                            <input type="email" required className="w-full input-premium font-bold bg-white/10 border-white/10 text-white placeholder-slate-500 focus:border-yellow-400 focus:bg-white/20" placeholder="usuario@bnd.com" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black uppercase text-slate-400 ml-2 tracking-widest">Contraseña</label>
+                            <input type="password" required className="w-full input-premium font-bold bg-white/10 border-white/10 text-white placeholder-slate-500 focus:border-yellow-400 focus:bg-white/20" placeholder="••••••••" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} />
+                        </div>
+                        <button type="submit" disabled={authLoading} className="btn-accent w-full p-4 text-[11px] uppercase tracking-widest shadow-xl mt-4 transition-all hover:scale-[1.02]">{authLoading ? 'Verificando...' : 'Iniciar Sesión'}</button>
+                    </form>
+                </div>
+            </div>
+        );
+    }
+
+    // --- CONFIGURACIÓN DE MENÚ SEGÚN ROL ---
+    const navItems = [
+        { id: 'dashboard', label: 'Panel de Alertas', icon: 'dashboard' },
+        { id: 'companies', label: 'Directorio', icon: 'company' },
+        { id: 'calendar', label: 'Proyecciones', icon: 'calendar' }
+    ];
+    // Solo el administrador puede ver la configuración general
+    if (role === 'admin') {
+        navItems.push({ id: 'config', label: 'Configuración', icon: 'settings' });
+    }
+
+    // --- INTERFAZ PRINCIPAL (Si el usuario está logueado) ---
     return (
         <div className="flex h-screen bg-slate-50 relative overflow-hidden leading-none text-slate-900">
             
@@ -272,25 +364,24 @@ const App = () => {
                 <div className="flex items-center justify-between lg:justify-start gap-3 mb-10 leading-none">
                     <div className="flex items-center gap-2.5">
                         <div className="w-9 h-9 bg-yellow-400 rounded-xl flex items-center justify-center shadow-lg"><Icon name="wrench" size={18} className="text-black"/></div>
-                        <h1 className="text-lg font-extrabold uppercase italic tracking-tighter leading-none">BND Pro</h1>
+                        <div className="leading-none">
+                            <h1 className="text-lg font-extrabold uppercase italic tracking-tighter leading-none">BND Pro</h1>
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">{role === 'admin' ? 'Administrador' : 'Operario'}</p>
+                        </div>
                     </div>
                     <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-slate-400 leading-none"><Icon name="x" size={18}/></button>
                 </div>
                 <nav className="space-y-1.5 flex-1 overflow-y-auto leading-none">
-                    {[
-                        { id: 'dashboard', label: 'Panel de Alertas', icon: 'dashboard' },
-                        { id: 'companies', label: 'Directorio', icon: 'company' },
-                        { id: 'calendar', label: 'Proyecciones', icon: 'calendar' },
-                        { id: 'config', label: 'Configuración', icon: 'settings' }
-                    ].map(item => (
+                    {navItems.map(item => (
                         <button key={item.id} onClick={() => {setActiveTab(item.id); setSelectedCompanyId(null); setSidebarOpen(false);}} 
                             className={`w-full p-3.5 rounded-xl transition-all flex items-center gap-3 font-bold text-xs leading-none ${activeTab === item.id ? 'bg-slate-900 text-white shadow-xl shadow-slate-200' : 'text-slate-400 hover:bg-slate-50'}`}>
                             <Icon name={item.icon} size={16}/> <span>{item.label}</span>
                         </button>
                     ))}
                 </nav>
-                <div className="pt-6 border-t leading-none">
-                     <button onClick={startScanner} className="w-full p-3.5 bg-yellow-400 text-black rounded-xl flex items-center justify-center gap-2 font-black text-[9px] uppercase shadow-md shadow-yellow-100 transition-transform active:scale-95 transition-all"><Icon name="qr" size={14}/> <span>Escanear</span></button>
+                <div className="pt-6 border-t leading-none space-y-2">
+                     <button onClick={startScanner} className="w-full p-3.5 bg-yellow-400 text-black rounded-xl flex items-center justify-center gap-2 font-black text-[9px] uppercase shadow-md shadow-yellow-100 transition-transform active:scale-95 transition-all"><Icon name="qr" size={14}/> <span>Escanear QR</span></button>
+                     <button onClick={handleLogout} className="w-full p-3.5 bg-slate-100 text-slate-600 rounded-xl flex items-center justify-center gap-2 font-black text-[9px] uppercase hover:bg-red-50 hover:text-red-600 transition-all"><Icon name="x" size={14}/> <span>Cerrar Sesión</span></button>
                 </div>
             </aside>
 
@@ -302,7 +393,6 @@ const App = () => {
                      <div className="w-9 h-9 rounded-lg bg-yellow-400 flex items-center justify-center shadow-md leading-none"><Icon name="wrench" size={16} className="text-black"/></div>
                 </header>
 
-                {/* TAB: DASHBOARD */}
                 {activeTab === 'dashboard' && (
                     <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pt-10 lg:pt-0 leading-none">
                         <div className="px-2 leading-none"><h2 className="text-3xl font-black tracking-tighter uppercase italic text-slate-900 leading-none">Panel de Alertas</h2></div>
@@ -356,12 +446,11 @@ const App = () => {
                     </div>
                 )}
 
-                {/* TAB: EMPRESAS (LISTADO) */}
                 {activeTab === 'companies' && !activeCompany && (
                     <div className="max-w-6xl mx-auto space-y-10 animate-fade-in pb-20 pt-10 lg:pt-0 leading-none">
                         <div className="flex justify-between items-end border-b pb-6 px-2 leading-none">
                             <h2 className="text-4xl font-black uppercase italic tracking-tighter leading-none">Directorio</h2>
-                            <button onClick={() => setModalType('company')} className="btn-accent px-8 py-4 text-[9px] uppercase shadow-xl">Nuevo Cliente</button>
+                            {role === 'admin' && <button onClick={() => setModalType('company')} className="btn-accent px-8 py-4 text-[9px] uppercase shadow-xl">Nuevo Cliente</button>}
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 leading-none">
                             {companies.map(emp => (
@@ -382,8 +471,7 @@ const App = () => {
                     </div>
                 )}
 
-                {/* TAB: CONFIGURACIÓN */}
-                {activeTab === 'config' && (
+                {activeTab === 'config' && role === 'admin' && (
                     <div className="max-w-3xl mx-auto space-y-10 animate-fade-in pt-10 lg:pt-0 leading-none">
                         <h2 className="text-4xl font-black uppercase italic tracking-tighter leading-none">Configuración</h2>
                         <div className="glass-card p-10 space-y-8 shadow-2xl leading-none">
@@ -401,14 +489,13 @@ const App = () => {
                     </div>
                 )}
 
-                {/* DETALLE EMPRESA (FLOTA) */}
                 {activeCompany && (
                     <div className="max-w-6xl mx-auto space-y-8 animate-in slide-in-from-right-8 duration-300 pb-20 pt-10 lg:pt-0 leading-none">
                         <button onClick={() => setSelectedCompanyId(null)} className="flex items-center gap-2 font-black text-[9px] uppercase hover:text-yellow-600 transition-all mb-4 group leading-none"><Icon name="chevronLeft" size={14}/> Directorio</button>
                         <div className="glass-card p-8 flex flex-col xl:flex-row justify-between items-start xl:items-end gap-10 bg-slate-900 text-white relative overflow-hidden border-none shadow-xl leading-none">
                             <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-yellow-400/5 blur-[80px] pointer-events-none"></div>
                             <div className="space-y-4 relative z-10 leading-none"><h2 className="text-4xl sm:text-5xl font-black uppercase italic tracking-tighter leading-none">{activeCompany.nombre}</h2><div className="flex flex-wrap gap-2 leading-none"><div className="bg-white/5 px-3 py-1.5 rounded-lg border border-white/10 text-[7px] font-black uppercase tracking-widest">{activeCompany.cuit}</div><div className="bg-yellow-400/10 text-yellow-400 px-3 py-1.5 rounded-lg border border-yellow-400/10 text-[7px] font-black uppercase tracking-widest italic">{activeCompany.responsable}</div></div></div>
-                            <button onClick={() => setModalType('vehicle')} className="btn-accent px-8 py-4 text-[9px] uppercase relative z-10 shadow-2xl shadow-yellow-400/10">Vincular Equipo</button>
+                            {role === 'admin' && <button onClick={() => setModalType('vehicle')} className="btn-accent px-8 py-4 text-[9px] uppercase relative z-10 shadow-2xl shadow-yellow-400/10">Vincular Equipo</button>}
                         </div>
 
                         <div className="grid gap-6 leading-none">
@@ -447,7 +534,6 @@ const App = () => {
                     </div>
                 )}
 
-                {/* TAB: CALENDARIO */}
                 {activeTab === 'calendar' && (
                     <div className="max-w-5xl mx-auto space-y-10 animate-fade-in pt-10 lg:pt-0 leading-none">
                         <h2 className="text-3xl font-black uppercase italic tracking-tighter leading-none">Proyecciones</h2>
@@ -617,5 +703,4 @@ const App = () => {
     );
 };
 
-// 3. ¡VITAL! Exponemos la app terminada al entorno global para que el index.html la pueda ejecutar
 window.App = App;
