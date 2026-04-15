@@ -3,13 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>BND - Control de Activos</title>
+    <title>BND</title>
     
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#0f172a">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="./icon.png">
+    
+    <link rel="icon" href="data:,">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="./style.css">
@@ -21,22 +24,22 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> </head>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
 <body>
     <div id="root"></div>
 
     <script type="module" src="./firebaseConfig.js"></script>
     <script type="text/babel" src="./Icons.jsx"></script>
     <script type="text/babel" src="./Components.jsx"></script>
-    
     <script type="text/babel" src="./AppViews.jsx"></script>
     <script type="text/babel" src="./AppModals.jsx"></script>
-    
     <script type="text/babel" src="./App.jsx"></script>
 
     <script type="text/babel">
         const initApp = () => {
-            if (window.App && window.Icons && window.Components && window.AppViews && window.AppModals) {
+            // Revisamos explícitamente las variables globales correctas para evitar pantallas en blanco
+            if (window.App && window.Icon && window.ModalComp && window.AppViews && window.AppModals) {
                 const root = ReactDOM.createRoot(document.getElementById('root'));
                 root.render(<window.App />);
             } else {
