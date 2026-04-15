@@ -5,7 +5,7 @@ const App = () => {
     // --- ESTADOS DE AUTENTICACIÓN Y ROLES ---
     const [user, setUser] = useState(null);
     const [role, setRole] = useState(null); 
-    const [userName, setUserName] = useState(''); // NUEVO: Guarda el nombre del usuario logueado
+    const [userName, setUserName] = useState(''); 
     const [authLoading, setAuthLoading] = useState(true);
     const [loginEmail, setLoginEmail] = useState('');
     const [loginPassword, setLoginPassword] = useState('');
@@ -19,7 +19,7 @@ const App = () => {
         nombre: '', 
         role: 'operario' 
     });
-    const [editingUserId, setEditingUserId] = useState(null); // NUEVO: Para editar usuarios
+    const [editingUserId, setEditingUserId] = useState(null); 
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [pwdError, setPwdError] = useState('');
@@ -78,7 +78,7 @@ const App = () => {
                             }
                             
                             setRole(userData.role);
-                            setUserName(userData.nombre || 'USUARIO BND'); // Cargamos el nombre
+                            setUserName(userData.nombre || 'USUARIO BND'); 
                             
                             if (userData.requiresPasswordChange) {
                                 setModalType('force_password_change');
@@ -87,7 +87,7 @@ const App = () => {
                             await fb.setDoc(userDocRef, { 
                                 email: u.email, 
                                 nombre: 'Admin Master',
-                                role: 'admin', // Si es la primera vez que inicia, le damos admin por seguridad
+                                role: 'admin', 
                                 requiresPasswordChange: false 
                             });
                             setRole('admin');
@@ -203,7 +203,6 @@ const App = () => {
                 role: newUser.role
             });
             
-            // Si el usuario se edita a sí mismo, actualizamos su nombre en la interfaz al instante
             if (user && editingUserId === user.uid) {
                 setUserName(newUser.nombre);
                 setRole(newUser.role);
@@ -231,6 +230,14 @@ const App = () => {
             setModalType(null);
         } catch (err) { 
             setPwdError('Error al actualizar. Intenta cerrar sesión y volver a entrar.'); 
+        }
+    };
+
+    const handleUpdateUserRole = async (uid, newRole) => {
+        if(window.confirm(`¿Estás seguro de cambiar los permisos a ${newRole.toUpperCase()}?`)) {
+            await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "users", uid), { 
+                role: newRole 
+            });
         }
     };
 
@@ -685,7 +692,7 @@ const App = () => {
                     }
                 }, 
                 (err) => {
-                    // Errores de lectura se ignoran en silencio para no saturar la consola
+                    // Errores de lectura se ignoran en silencio
                 }
             ).catch(e => console.error("Error al iniciar cámara:", e));
         }, 500);
@@ -786,7 +793,10 @@ const App = () => {
 
     if (!user) {
         return (
-            <div className="flex h-[100dvh] items-center justify-center bg-slate-900 px-4 md:px-6 select-none w-full" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+            <div 
+                className="flex h-[100dvh] items-center justify-center bg-slate-900 px-4 md:px-6 select-none w-full" 
+                style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+            >
                 <div className="glass-card p-8 md:p-12 w-full max-w-sm md:max-w-md bg-white/5 backdrop-blur-2xl border-white/10 text-center">
                     <img 
                         src="./icon.png" 
@@ -943,7 +953,7 @@ const App = () => {
                                 {alerts.map((a, i) => (
                                     <div 
                                         key={i} 
-                                        className={`glass-card p-4 md:p-5 flex flex-col md:flex-row items-center gap-4 border-l-[8px] md:border-l-[12px] ${a.type === 'BREAKDOWN' ? 'border-l-red-500' : 'border-l-yellow-400'}`}
+                                        className={`glass-card p-4 md:p-5 flex flex-col md:flex-row items-center gap-4 md:gap-5 border-l-[8px] md:border-l-[12px] ${a.type === 'BREAKDOWN' ? 'border-l-red-500' : 'border-l-yellow-400'}`}
                                     >
                                         <div className={`w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center shrink-0 ${a.type === 'BREAKDOWN' ? 'bg-red-50 text-red-500 animate-pulse' : 'bg-yellow-50 text-yellow-600'}`}>
                                             <Icon name={a.type === 'FUEL' ? 'fuel' : 'alert'} size={24}/>
@@ -1007,50 +1017,54 @@ const App = () => {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
                                 {companies.map(emp => (
-                                    <div key={emp.id} className="glass-card p-5 relative group">
-                                        {role === 'admin' && (
-                                            <div className="absolute top-3 right-3 flex gap-2">
-                                                <button 
-                                                    onClick={() => { 
-                                                        setSelectedCompanyId(emp.id); 
-                                                        setForm({
-                                                            nombre: emp.nombre, 
-                                                            cuit: emp.cuit, 
-                                                            responsable: emp.responsable, 
-                                                            tankCapacity: emp.tankCapacity
-                                                        }); 
-                                                        setModalType('edit_company'); 
-                                                    }} 
-                                                    className="p-2 bg-slate-100 hover:bg-yellow-400 rounded-lg transition-colors"
-                                                >
-                                                    <Icon name="settings" size={14}/>
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleDeleteCompany(emp.id)} 
-                                                    className="p-2 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-colors"
-                                                >
-                                                    <Icon name="x" size={14}/>
-                                                </button>
-                                            </div>
-                                        )}
-                                        <div className="flex justify-between items-start mb-6">
-                                            <div className="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center text-yellow-400">
-                                                <Icon name="company" size={20}/>
+                                    <div key={emp.id} className="glass-card p-5 md:p-6 relative group">
+                                        <div className="flex justify-between items-start mb-6 md:mb-8">
+                                            <div className="w-12 h-12 md:w-14 md:h-14 bg-slate-900 rounded-xl md:rounded-2xl flex items-center justify-center text-yellow-400 shadow-xl">
+                                                <Icon name="company" size={24}/>
                                             </div>
                                             <FuelTankCapsule capacity={emp.tankCapacity} current={emp.currentFuel} />
                                         </div>
-                                        <h3 className="text-xl font-black uppercase italic truncate mb-1 pr-12">{emp.nombre}</h3>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">CUIT: {emp.cuit}</p>
+                                        <h3 className="text-xl md:text-2xl font-black uppercase italic truncate mb-1 pr-12 md:pr-16">{emp.nombre}</h3>
+                                        <p className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest mb-6 md:mb-8">CUIT: {emp.cuit}</p>
                                         
-                                        <button 
-                                            onClick={() => { 
-                                                setSelectedCompanyId(emp.id); 
-                                                setIsolatedVehicleId(null); 
-                                            }} 
-                                            className="btn-premium px-4 py-3 w-full rounded-xl text-sm font-black uppercase shadow-md"
-                                        >
-                                            ABRIR FLOTA
-                                        </button>
+                                        <div className="flex gap-2 w-full mt-4">
+                                            <button 
+                                                onClick={() => { 
+                                                    setSelectedCompanyId(emp.id); 
+                                                    setIsolatedVehicleId(null); 
+                                                }} 
+                                                className="btn-premium flex-1 px-4 py-3 rounded-xl text-sm md:text-base font-black uppercase shadow-md"
+                                            >
+                                                ABRIR FLOTA
+                                            </button>
+                                            
+                                            {/* BOTONES DE ADMIN (Integrados al layout para no superponer) */}
+                                            {role === 'admin' && (
+                                                <>
+                                                    <button 
+                                                        onClick={() => { 
+                                                            setSelectedCompanyId(emp.id); 
+                                                            setForm({
+                                                                nombre: emp.nombre, 
+                                                                cuit: emp.cuit, 
+                                                                responsable: emp.responsable, 
+                                                                tankCapacity: emp.tankCapacity
+                                                            }); 
+                                                            setModalType('edit_company'); 
+                                                        }} 
+                                                        className="px-4 py-3 bg-slate-100 hover:bg-yellow-400 rounded-xl transition-colors flex items-center justify-center shadow-sm"
+                                                    >
+                                                        <Icon name="settings" size={16}/>
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDeleteCompany(emp.id)} 
+                                                        className="px-4 py-3 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-colors flex items-center justify-center shadow-sm"
+                                                    >
+                                                        <Icon name="x" size={16}/>
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -1065,18 +1079,18 @@ const App = () => {
                                     setSelectedCompanyId(null); 
                                     setIsolatedVehicleId(null); 
                                 }} 
-                                className="flex items-center gap-2 text-xs font-black uppercase mb-6 text-slate-400 hover:text-slate-900 transition-colors"
+                                className="flex items-center gap-2 md:gap-3 text-xs md:text-sm font-black uppercase mb-6 md:mb-8 text-slate-400 hover:text-slate-900 transition-colors"
                             >
-                                <Icon name="chevronLeft" size={16}/> VOLVER
+                                <Icon name="chevronLeft" size={16}/> VOLVER AL DIRECTORIO
                             </button>
                             
-                            <div className="glass-card p-6 md:p-8 bg-slate-900 text-white mb-6 relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-48 h-48 bg-yellow-400/10 blur-[80px] pointer-events-none" />
-                                <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter mb-3 leading-none">
+                            <div className="glass-card p-6 md:p-8 bg-slate-900 text-white mb-6 md:mb-8 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-48 h-48 md:w-64 md:h-64 bg-yellow-400/10 blur-[80px] md:blur-[100px] pointer-events-none" />
+                                <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter mb-3 md:mb-4 leading-none">
                                     {activeCompany.nombre}
                                 </h2>
-                                <div className="flex flex-wrap gap-3">
-                                    <div className="px-3 py-1.5 bg-white/10 border border-white/20 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                                <div className="flex flex-wrap gap-3 md:gap-4">
+                                    <div className="px-3 py-1.5 md:px-4 md:py-2 bg-white/10 border border-white/20 rounded-lg md:rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest">
                                         {activeCompany.cuit}
                                     </div>
                                     {role === 'admin' && !isolatedVehicleId && (
@@ -1087,7 +1101,7 @@ const App = () => {
                                                 }); 
                                                 setModalType('vehicle'); 
                                             }} 
-                                            className="btn-accent px-4 py-2 rounded-lg text-[10px] font-black shadow-lg"
+                                            className="btn-accent px-4 py-2 rounded-lg text-[10px] md:text-xs font-black shadow-lg"
                                         >
                                             + VINCULAR EQUIPO
                                         </button>
@@ -1105,100 +1119,102 @@ const App = () => {
                                         onClick={() => setIsolatedVehicleId(null)} 
                                         className="text-[10px] font-black uppercase text-slate-600 bg-white px-4 py-2 rounded-lg border shadow-sm w-full sm:w-auto"
                                     >
-                                        VER TODA LA FLOTA
+                                        VER TODA LA FLOTA COMPLETA
                                     </button>
                                 </div>
                             )}
 
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
                                 {displayedVehicles.map(v => {
                                     const ciclo = (v.horometroTotal || 0) - (v.ultimoServiceHoras || 0);
                                     const perc = Math.max(0, 100 - (ciclo / (v.serviceInterval || 250) * 100));
                                     
                                     return (
-                                        <div key={v.id} className="glass-card p-5 md:p-6 border-l-[8px] md:border-l-[12px] border-l-yellow-400 relative group">
+                                        <div key={v.id} className="glass-card p-5 md:p-6 border-l-[8px] md:border-l-[12px] border-l-yellow-400 relative group flex flex-col">
                                             
-                                            {role === 'admin' && (
-                                                <div className="absolute top-3 right-3 flex gap-2">
-                                                    <button 
-                                                        onClick={() => { 
-                                                            setActiveVehicleId(v.id); 
-                                                            setForm({
-                                                                nombre: v.nombre, marca: v.marca, modelo: v.modelo, serie: v.serie, patente: v.patente, serviceInterval: v.serviceInterval
-                                                            }); 
-                                                            setModalType('edit_vehicle'); 
-                                                        }} 
-                                                        className="p-2 bg-slate-50 hover:bg-yellow-400 rounded-lg transition-colors"
-                                                    >
-                                                        <Icon name="settings" size={12}/>
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => handleDeleteVehicle(v.id)} 
-                                                        className="p-2 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-colors"
-                                                    >
-                                                        <Icon name="x" size={12}/>
-                                                    </button>
-                                                </div>
-                                            )}
-
-                                            <div className="flex flex-col sm:flex-row justify-between gap-5">
-                                                <div className="flex-1 space-y-4 md:space-y-5">
+                                            <div className="flex flex-col sm:flex-row justify-between gap-5 md:gap-8 flex-1">
+                                                <div className="flex-1 space-y-4 md:space-y-6">
                                                     <div className="flex items-center gap-4">
-                                                        <div className="w-12 h-12 md:w-16 md:h-16 bg-slate-50 rounded-xl flex items-center justify-center shadow-inner shrink-0">
+                                                        <div className="w-12 h-12 md:w-16 md:h-16 bg-slate-50 rounded-xl md:rounded-[1.5rem] flex items-center justify-center shadow-inner shrink-0">
                                                             <Icon name="truck" size={24} className="text-slate-800"/>
                                                         </div>
                                                         <div className="overflow-hidden w-full">
-                                                            <h4 className="font-black uppercase text-lg md:text-xl italic tracking-tight truncate pr-16">
+                                                            <h4 className="font-black uppercase text-lg md:text-xl italic tracking-tight truncate pr-4">
                                                                 {v.nombre}
                                                             </h4>
-                                                            <p className="font-black text-slate-900 text-base md:text-lg mono">
-                                                                {(v.horometroTotal || 0).toLocaleString()} <span className="text-[10px] text-slate-400 uppercase">HS</span>
+                                                            <p className="font-black text-slate-900 text-base md:text-xl mono">
+                                                                {(v.horometroTotal || 0).toLocaleString()} <span className="text-[10px] md:text-xs text-slate-400 uppercase">HS</span>
                                                             </p>
                                                         </div>
                                                     </div>
-                                                    <div className="space-y-1.5">
+                                                    <div className="space-y-1.5 md:space-y-2">
                                                         <div className="flex justify-between items-end px-1">
                                                             <span className="text-[9px] md:text-[10px] font-black uppercase text-slate-400">Ciclo ({v.serviceInterval}h)</span>
-                                                            <span className={`text-xs font-black mono ${perc < 20 ? 'text-red-500' : 'text-slate-900'}`}>{perc.toFixed(0)}%</span>
+                                                            <span className={`text-xs md:text-sm font-black mono ${perc < 20 ? 'text-red-500' : 'text-slate-900'}`}>{perc.toFixed(0)}%</span>
                                                         </div>
-                                                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                        <div className="h-2 md:h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner">
                                                             <div className={`h-full transition-all duration-1000 ${perc < 20 ? 'bg-red-500' : 'bg-slate-900'}`} style={{width: `${perc}%`}} />
                                                         </div>
                                                     </div>
                                                 </div>
                                                 
-                                                {/* BOTONERA DE ACCIONES COMPLETA */}
-                                                <div className="grid grid-cols-2 sm:grid-cols-1 gap-2 shrink-0 sm:w-36">
+                                                {/* BOTONERA DE ACCIONES (Mobile y PC integrados para evitar superposición) */}
+                                                <div className="grid grid-cols-2 sm:grid-cols-1 gap-2 md:gap-3 shrink-0 sm:w-40">
+                                                    
+                                                    {/* BOTONES DE ADMIN DENTRO DEL GRID DE ACCIONES */}
+                                                    {role === 'admin' && (
+                                                        <div className="flex gap-2 col-span-2 sm:col-span-1">
+                                                            <button 
+                                                                onClick={() => { 
+                                                                    setActiveVehicleId(v.id); 
+                                                                    setForm({
+                                                                        nombre: v.nombre, marca: v.marca, modelo: v.modelo, serie: v.serie, patente: v.patente, serviceInterval: v.serviceInterval
+                                                                    }); 
+                                                                    setModalType('edit_vehicle'); 
+                                                                }} 
+                                                                className="flex-1 px-3 py-2 bg-slate-100 hover:bg-yellow-400 rounded-xl transition-colors flex items-center justify-center shadow-sm"
+                                                            >
+                                                                <Icon name="settings" size={14}/>
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleDeleteVehicle(v.id)} 
+                                                                className="flex-1 px-3 py-2 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-colors flex items-center justify-center shadow-sm"
+                                                            >
+                                                                <Icon name="x" size={14}/>
+                                                            </button>
+                                                        </div>
+                                                    )}
+
                                                     <button 
                                                         onClick={() => { setActiveVehicleId(v.id); setModalType('log'); }} 
-                                                        className="btn-premium px-3 py-2 rounded-xl text-[10px] font-black w-full shadow-sm"
+                                                        className="btn-premium px-3 py-2 rounded-xl text-[10px] md:text-xs font-black w-full shadow-sm"
                                                     >
                                                         CARGAR
                                                     </button>
                                                     <button 
                                                         onClick={() => { setActiveVehicleId(v.id); setModalType('service'); }} 
-                                                        className="btn-accent px-3 py-2 rounded-xl text-[10px] font-black w-full shadow-sm"
+                                                        className="btn-accent px-3 py-2 rounded-xl text-[10px] md:text-xs font-black w-full shadow-sm"
                                                     >
                                                         SERVICE
                                                     </button>
                                                     
-                                                    {/* BOTON HISTORIAL RESTAURADO */}
+                                                    {/* BOTON HISTORIAL RESTAURADO E INTEGRADO */}
                                                     <button 
                                                         onClick={() => { 
                                                             setActiveVehicleId(v.id); 
                                                             setForm({...form, horas: v.horometroTotal, fecha: new Date().toISOString().split('T')[0]}); 
                                                             setModalType('historical'); 
                                                         }} 
-                                                        className="btn-premium bg-slate-200 text-slate-800 hover:bg-slate-300 px-3 py-2 rounded-xl text-[10px] font-black w-full shadow-sm"
+                                                        className="btn-premium bg-slate-200 text-slate-800 hover:bg-slate-300 px-3 py-2 rounded-xl text-[10px] font-black w-full shadow-sm col-span-2 sm:col-span-1"
                                                     >
                                                         HISTORIAL
                                                     </button>
 
                                                     <button 
                                                         onClick={() => handleToggleStatus(v.id, v.operativo)} 
-                                                        className={`px-3 py-2 rounded-xl font-black text-[9px] uppercase shadow-sm transition-all w-full col-span-2 sm:col-span-1 ${v.operativo ? 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-600 hover:text-white' : 'bg-emerald-500 text-white'}`}
+                                                        className={`px-3 py-2 rounded-xl font-black text-[9px] md:text-[10px] uppercase shadow-sm transition-all w-full col-span-2 sm:col-span-1 ${v.operativo ? 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-600 hover:text-white' : 'bg-emerald-500 text-white'}`}
                                                     >
-                                                        {v.operativo ? 'REPORTAR ROTO' : 'REVIVIR'}
+                                                        {v.operativo ? 'REPORTAR ROTURA' : 'REVIVIR EQUIPO'}
                                                     </button>
                                                     
                                                     <div className="flex gap-2 col-span-2 sm:col-span-1">
@@ -1206,13 +1222,13 @@ const App = () => {
                                                             onClick={() => downloadPDF(activeCompany, v)} 
                                                             className="flex-1 p-2 bg-slate-50 hover:bg-slate-900 hover:text-white rounded-xl transition-all flex items-center justify-center border shadow-sm"
                                                         >
-                                                            <Icon name="download" size={14}/>
+                                                            <Icon name="download" size={16}/>
                                                         </button>
                                                         <button 
                                                             onClick={() => { setActiveVehicleId(v.id); setModalType('qr'); setTimeout(() => generateQR(v.id), 100); }} 
                                                             className="flex-1 p-2 bg-slate-50 hover:bg-yellow-400 rounded-xl transition-all flex items-center justify-center border shadow-sm"
                                                         >
-                                                            <Icon name="qr" size={14}/>
+                                                            <Icon name="qr" size={16}/>
                                                         </button>
                                                     </div>
                                                 </div>
@@ -1220,15 +1236,15 @@ const App = () => {
                                             
                                             <button 
                                                 onClick={() => toggleHistory(v.id)} 
-                                                className="flex items-center gap-2 text-[9px] font-black uppercase text-slate-400 hover:text-slate-900 transition-colors border-t border-slate-100 mt-5 pt-3 w-full"
+                                                className="flex items-center gap-2 text-[9px] md:text-[10px] font-black uppercase text-slate-400 hover:text-slate-900 transition-colors border-t border-slate-100 mt-5 pt-3 w-full"
                                             >
-                                                <Icon name="history" size={12}/> AUDITORÍA 
-                                                <Icon name="chevronDown" size={12} className={`ml-auto transition-transform ${expandedVehicles.has(v.id) ? 'rotate-180' : ''}`}/>
+                                                <Icon name="history" size={14}/> AUDITORÍA INTERNA
+                                                <Icon name="chevronDown" size={14} className={`ml-auto transition-transform ${expandedVehicles.has(v.id) ? 'rotate-180' : ''}`}/>
                                             </button>
                                             
                                             {expandedVehicles.has(v.id) && (
-                                                <div className="mt-3 overflow-x-auto rounded-xl border border-slate-100 bg-slate-50/50 p-2 animate-fade-in">
-                                                    <table className="w-full history-table min-w-[300px]">
+                                                <div className="mt-4 overflow-x-auto rounded-xl border border-slate-100 bg-slate-50 p-2">
+                                                    <table className="w-full history-table min-w-[400px]">
                                                         <thead>
                                                             <tr>
                                                                 <th>Fecha</th>
@@ -1294,11 +1310,11 @@ const App = () => {
                                         setNewUser({ email: '', password: '', nombre: '', role: 'operario' }); 
                                         setModalType('register_user'); 
                                     }} className="btn-accent px-5 py-2.5 rounded-xl text-[10px] font-black shadow-md">
-                                        + NUEVO
+                                        + NUEVO ACCESO
                                     </button>
                                 </div>
                                 <div className="glass-card overflow-x-auto shadow-xl">
-                                    <table className="w-full history-table min-w-[400px]">
+                                    <table className="w-full history-table min-w-[500px]">
                                         <thead>
                                             <tr>
                                                 <th>Nombre</th>
@@ -1338,15 +1354,15 @@ const App = () => {
                         </div>
                     )}
 
-                    {/* VISTA: PROYECCIONES */}
+                    {/* VISTA: PROYECCIONES DE MANTENIMIENTO */}
                     {activeTab === 'calendar' && (
-                        <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
+                        <div className="max-w-4xl mx-auto space-y-8 md:space-y-10 animate-fade-in">
                             <h2 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter">Proyecciones</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
                                 {projectionsData.map((p, i) => (
                                     <div key={i} className="glass-card p-6 flex flex-col gap-5 shadow-lg border-t-[6px] border-t-blue-500">
                                         <div className="flex items-center gap-4 overflow-hidden">
-                                            <div className="w-12 h-12 bg-blue-50 rounded-xl text-blue-600 flex items-center justify-center shrink-0">
+                                            <div className="w-12 h-12 md:w-14 md:h-14 bg-blue-50 rounded-xl text-blue-600 flex items-center justify-center shrink-0">
                                                 <Icon name="truck" size={20}/>
                                             </div>
                                             <div className="overflow-hidden w-full">
@@ -1376,7 +1392,7 @@ const App = () => {
                 </div>
             </main>
 
-            {/* --- MODALES DINÁMICOS --- */}
+            {/* --- MODALES DINÁMICOS FORMULARIOS --- */}
             {modalType && (
                 <ModalComp 
                     title={modalType.replace(/_/g,' ')} 
@@ -1458,7 +1474,7 @@ const App = () => {
                                     <input className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" type="number" placeholder="HS INICIAL" onChange={e => setForm({...form, horometro: e.target.value})} />
                                     <input className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" type="number" placeholder="CICLO SERVICE" defaultValue="250" onChange={e => setForm({...form, serviceInterval: e.target.value})} />
                                 </div>
-                                <button onClick={handleAddVehicle} className="btn-premium w-full px-5 py-4 rounded-xl text-sm font-black mt-2 uppercase shadow-md">Vincular Maquinaria</button>
+                                <button onClick={handleAddVehicle} className="btn-premium w-full px-5 py-4 rounded-xl text-sm font-black mt-2 uppercase shadow-md">Vincular Equipo</button>
                             </div>
                         )}
 
@@ -1472,7 +1488,7 @@ const App = () => {
                                     <input className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" value={form.patente} onChange={e => setForm({...form, patente: e.target.value})} />
                                     <input className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" type="number" value={form.serviceInterval} onChange={e => setForm({...form, serviceInterval: e.target.value})} />
                                 </div>
-                                <button onClick={handleEditVehicleSubmit} className="btn-premium w-full px-5 py-4 rounded-xl text-sm font-black mt-2 uppercase shadow-md">Actualizar</button>
+                                <button onClick={handleEditVehicleSubmit} className="btn-premium w-full px-5 py-4 rounded-xl text-sm font-black mt-2 uppercase shadow-md">Actualizar Datos</button>
                             </div>
                         )}
 
@@ -1559,7 +1575,7 @@ const App = () => {
                         {modalType === 'qr' && (
                             <div className="space-y-6 text-center flex flex-col items-center pt-4">
                                 <p className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter">BND</p>
-                                <div className="p-6 bg-white rounded-3xl shadow-xl border-4 border-slate-900" id={`qr-container-${activeVehicleId}`}></div>
+                                <div className="p-6 md:p-8 bg-white rounded-3xl md:rounded-[2rem] shadow-2xl border-4 border-slate-900" id={`qr-container-${activeVehicleId}`}></div>
                                 <p className="text-lg font-black text-slate-800 uppercase tracking-widest">{activeVehicle?.nombre}</p>
                                 <button onClick={handlePrintQR} className="btn-premium w-full px-5 py-4 rounded-xl text-sm font-black uppercase shadow-xl mt-4">IMPRIMIR ETIQUETA</button>
                             </div>
