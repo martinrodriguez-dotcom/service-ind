@@ -16,6 +16,9 @@
     
     <link rel="icon" type="image/png" href="./icon.png">
     <link rel="apple-touch-icon" href="./icon.png">
+    <link rel="shortcut icon" href="./icon.png">
+
+    <link rel="stylesheet" href="./style.css">
 
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -27,151 +30,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
-        
-        :root {
-            --primary-yellow: #fbbf24;
-            --primary-dark: #0f172a;
-            --bg-app: #f8fafc;
-        }
-
-        body { 
-            margin: 0; 
-            font-family: 'Plus Jakarta Sans', sans-serif; 
-            background-color: var(--bg-app); 
-            color: #1e293b; 
-            overflow: hidden;
-            /* Evita el scroll elástico en iOS */
-            position: fixed;
-            width: 100%;
-            height: 100%;
-        }
-
-        .mono { font-family: 'JetBrains Mono', monospace; }
-
-        .glass-card {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 4px 15px -5px rgba(0, 0, 0, 0.05);
-            border-radius: 1.25rem;
-            transition: all 0.3s ease;
-        }
-
-        /* Botones adaptados para pulgares */
-        .btn-premium, .btn-accent {
-            min-height: 48px; /* Altura mínima recomendada por Apple/Google */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0.75rem 1.25rem;
-            font-size: 0.8rem;
-            font-weight: 800;
-            letter-spacing: 0.05em;
-            border-radius: 0.85rem;
-            transition: all 0.2s active:scale-95;
-        }
-
-        .btn-premium { background: var(--primary-dark); color: white; }
-        .btn-accent { background: var(--primary-yellow); color: #000; }
-
-        .input-premium {
-            min-height: 52px;
-            background: #f1f5f9;
-            border: 2px solid transparent;
-            border-radius: 1rem;
-            padding: 0 1.25rem;
-            font-weight: 700;
-            width: 100%;
-            transition: all 0.2s;
-            -webkit-appearance: none; /* Quita sombras internas en iOS */
-        }
-
-        .input-premium:focus {
-            outline: none;
-            border-color: var(--primary-yellow);
-            background: white;
-        }
-
-        /* Ajuste de Modales para Celulares */
-        .modal-container {
-            width: 95%;
-            max-width: 500px;
-            margin: auto;
-            border-radius: 2rem;
-            max-height: 90vh;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .workflow-step {
-            min-height: 40px;
-            font-size: 8px;
-            font-weight: 800;
-            text-transform: uppercase;
-            border-radius: 0.6rem;
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid #e2e8f0;
-        }
-
-        .workflow-step.active {
-            color: white;
-            border: none;
-        }
-
-        .fuel-tank-container {
-            width: 80px;
-            height: 45px;
-        }
-
-        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* Estilo de tabla adaptable */
-        .history-table th {
-            padding: 10px;
-            font-size: 9px;
-            color: #94a3b8;
-            background: #f8fafc;
-        }
-        .history-table td {
-            padding: 12px 10px;
-            border-bottom: 1px solid #f1f5f9;
-            font-size: 12px;
-        }
-
-        /* Sidebar Mobile Overlay */
-        @media (max-width: 1024px) {
-            .sidebar-mobile {
-                position: fixed;
-                left: 0; top: 0; bottom: 0;
-                z-index: 200;
-                transform: translateX(-100%);
-                transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-                background: white;
-                width: 80%;
-                max-width: 300px;
-                box-shadow: 20px 0 50px rgba(0,0,0,0.2);
-            }
-            .sidebar-mobile.open { transform: translateX(0); }
-            
-            .sidebar-overlay {
-                position: fixed;
-                inset: 0;
-                background: rgba(15, 23, 42, 0.5);
-                backdrop-filter: blur(4px);
-                z-index: 190;
-                opacity: 0;
-                pointer-events: none;
-                transition: opacity 0.3s;
-            }
-            .sidebar-overlay.visible { opacity: 1; pointer-events: auto; }
-        }
-    </style>
 </head>
 <body>
     <div id="root"></div>
@@ -196,7 +54,9 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js');
+                navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('BND: Sistema PWA Activo', reg.scope))
+                .catch(err => console.error('BND: Fallo en PWA', err));
             });
         }
     </script>
