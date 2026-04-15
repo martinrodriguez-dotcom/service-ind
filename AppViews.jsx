@@ -60,7 +60,7 @@ const CompaniesView = ({ companies, role, setForm, setModalType, setSelectedComp
     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
       <h2 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter">Directorio</h2>
       {role === 'admin' && (
-        <button onClick={() => { setForm({nombre:'', cuit:'', responsable:'', tankCapacity:1000, criticalFuelPerc: 25}); setModalType('company'); }} className="btn-accent px-5 py-3 rounded-xl w-full sm:w-auto text-xs font-black shadow-md">+ NUEVO CLIENTE</button>
+        <button onClick={() => { setForm(prev => ({...prev, nombre:'', cuit:'', responsable:'', tankCapacity:1000, criticalFuelPerc: 25})); setModalType('company'); }} className="btn-accent px-5 py-3 rounded-xl w-full sm:w-auto text-xs font-black shadow-md">+ NUEVO CLIENTE</button>
       )}
     </div>
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
@@ -76,7 +76,7 @@ const CompaniesView = ({ companies, role, setForm, setModalType, setSelectedComp
             <button onClick={() => { setSelectedCompanyId(emp.id); setActiveVehicleId(null); }} className="btn-premium flex-1 px-4 py-3 rounded-xl text-sm md:text-base font-black uppercase shadow-md">ABRIR FLOTA</button>
             {role === 'admin' && (
               <>
-                <button onClick={() => { setSelectedCompanyId(emp.id); setForm({nombre: emp.nombre, cuit: emp.cuit, responsable: emp.responsable, tankCapacity: emp.tankCapacity, criticalFuelPerc: emp.criticalFuelPerc || 25}); setModalType('edit_company'); }} className="px-4 py-3 bg-slate-100 hover:bg-yellow-400 rounded-xl transition-colors flex items-center justify-center shadow-sm"><Icon name="settings" size={16}/></button>
+                <button onClick={() => { setSelectedCompanyId(emp.id); setForm(prev => ({...prev, nombre: emp.nombre, cuit: emp.cuit, responsable: emp.responsable, tankCapacity: emp.tankCapacity, criticalFuelPerc: emp.criticalFuelPerc || 25})); setModalType('edit_company'); }} className="px-4 py-3 bg-slate-100 hover:bg-yellow-400 rounded-xl transition-colors flex items-center justify-center shadow-sm"><Icon name="settings" size={16}/></button>
                 <button onClick={() => handleDeleteCompany(emp.id)} className="px-4 py-3 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-colors flex items-center justify-center shadow-sm"><Icon name="x" size={16}/></button>
               </>
             )}
@@ -103,16 +103,19 @@ const CompanyDetailView = ({
         <div className="glass-card p-6 md:p-8 bg-slate-900 text-white mb-6 md:mb-8 relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-l-[12px] border-l-yellow-400">
           <div className="absolute top-0 right-0 w-48 h-48 md:w-64 md:h-64 bg-yellow-400/10 blur-[80px] md:blur-[100px] pointer-events-none" />
           <div className="z-10"><h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter mb-2 leading-none">{activeCompany.nombre}</h2><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Flota de Maquinaria</p></div>
-          {role === 'admin' && <button onClick={() => { setForm({nombre:'', marca:'', modelo:'', serie:'', patente:'', serviceInterval: 250, horometro: ''}); setModalType('vehicle'); }} className="btn-accent px-5 py-3 rounded-xl text-xs font-black shadow-lg z-10 w-full md:w-auto">+ VINCULAR EQUIPO</button>}
+          {role === 'admin' && <button onClick={() => { setForm(prev => ({...prev, nombre:'', marca:'', modelo:'', serie:'', patente:'', serviceInterval: 250, horometro: ''})); setModalType('vehicle'); }} className="btn-accent px-5 py-3 rounded-xl text-xs font-black shadow-lg z-10 w-full md:w-auto">+ VINCULAR EQUIPO</button>}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
           {(activeCompany.vehiculos || []).map(v => {
             const perc = Math.max(0, 100 - (((v.horometroTotal || 0) - (v.ultimoServiceHoras || 0)) / (v.serviceInterval || 250) * 100));
             return (
-              <div key={v.id} onClick={() => setActiveVehicleId(v.id)} className="glass-card p-5 border-l-[6px] border-l-slate-300 cursor-pointer hover:border-l-yellow-400 transition-all hover:-translate-y-1 shadow-sm hover:shadow-xl group">
+              <div key={v.id} onClick={() => setActiveVehicleId(v.id)} className="glass-card p-5 border-l-[6px] border-l-slate-300 cursor-pointer hover:border-l-yellow-400 transition-all hover:-translate-y-1 shadow-sm hover:shadow-xl group flex flex-col">
                 <div className="flex justify-between items-start mb-4"><div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center group-hover:bg-yellow-50 transition-colors"><Icon name="truck" size={18} className="text-slate-800"/></div><div className={`px-2 py-1 rounded text-[8px] font-black uppercase tracking-widest ${v.operativo ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600 animate-pulse'}`}>{v.operativo ? 'ACTIVO' : 'ROTO'}</div></div>
                 <h4 className="font-black uppercase text-lg italic tracking-tight truncate">{v.nombre}</h4><p className="font-black text-slate-900 text-sm mono mb-4">{(v.horometroTotal || 0).toLocaleString()} <span className="text-[9px] text-slate-400 uppercase">HS</span></p>
-                <div className="space-y-1.5"><div className="flex justify-between items-end px-1"><span className="text-[8px] font-black uppercase text-slate-400">Ciclo ({v.serviceInterval}h)</span><span className={`text-[10px] font-black mono ${perc < 20 ? 'text-red-500' : 'text-slate-900'}`}>{perc.toFixed(0)}%</span></div><div className="h-1.5 bg-slate-100 rounded-full overflow-hidden"><div className={`h-full transition-all duration-1000 ${perc < 20 ? 'bg-red-500' : 'bg-slate-900'}`} style={{width: `${perc}%`}} /></div></div>
+                <div className="space-y-1.5 mt-auto">
+                    <div className="flex justify-between items-end px-1"><span className="text-[8px] font-black uppercase text-slate-400">Ciclo ({v.serviceInterval}h)</span><span className={`text-[10px] font-black mono ${perc < 20 ? 'text-red-500' : 'text-slate-900'}`}>{perc.toFixed(0)}%</span></div>
+                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden"><div className={`h-full transition-all duration-1000 ${perc < 20 ? 'bg-red-500' : 'bg-slate-900'}`} style={{width: `${perc}%`}} /></div>
+                </div>
               </div>
             );
           })}
@@ -134,14 +137,16 @@ const CompanyDetailView = ({
           <button onClick={() => setModalType('log')} className="btn-premium px-4 py-4 rounded-2xl text-xs font-black w-full shadow-lg">CARGAR DATOS</button>
           <button onClick={() => setModalType('service')} className="btn-accent px-4 py-4 rounded-2xl text-xs font-black w-full shadow-lg">SERVICE</button>
           <button onClick={() => handleToggleStatus(activeVehicle.id, activeVehicle.operativo)} className={`px-4 py-4 rounded-2xl font-black text-xs uppercase shadow-lg transition-all w-full ${activeVehicle.operativo ? 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-600 hover:text-white' : 'bg-emerald-500 text-white'}`}>{activeVehicle.operativo ? 'REPORTAR ROTURA' : 'REVIVIR EQUIPO'}</button>
-          <button onClick={() => { setForm({...form, horas: activeVehicle.horometroTotal, fecha: new Date().toISOString().split('T')[0]}); setModalType('historical'); }} className="btn-premium bg-slate-100 text-slate-700 hover:bg-slate-200 px-4 py-4 rounded-2xl text-xs font-black w-full shadow-sm">HISTORIAL</button>
+          
+          {/* BOTÓN HISTORIAL CORREGIDO (usa prev) */}
+          <button onClick={() => { setForm(prev => ({...prev, horas: activeVehicle.horometroTotal, fecha: new Date().toISOString().split('T')[0]})); setModalType('historical'); }} className="btn-premium bg-slate-100 text-slate-700 hover:bg-slate-200 px-4 py-4 rounded-2xl text-xs font-black w-full shadow-sm">HISTORIAL</button>
         </div>
         <div className="flex flex-wrap gap-3 mb-8 bg-slate-50 p-4 rounded-2xl">
           <button onClick={() => downloadPDF(activeCompany, activeVehicle)} className="flex-1 px-4 py-3 bg-white hover:bg-slate-900 hover:text-white rounded-xl transition-all flex items-center justify-center border shadow-sm text-[10px] font-black uppercase gap-2"><Icon name="download" size={14}/> EXPEDIENTE PDF</button>
           <button onClick={() => { setModalType('qr'); setTimeout(() => generateQR(activeVehicle.id), 100); }} className="flex-1 px-4 py-3 bg-white hover:bg-yellow-400 rounded-xl transition-all flex items-center justify-center border shadow-sm text-[10px] font-black uppercase gap-2"><Icon name="qr" size={14}/> ETIQUETA QR</button>
           {role === 'admin' && (
             <div className="flex flex-1 gap-2">
-              <button onClick={() => { setForm({nombre: activeVehicle.nombre, marca: activeVehicle.marca, modelo: activeVehicle.modelo, serie: activeVehicle.serie, patente: activeVehicle.patente, serviceInterval: activeVehicle.serviceInterval}); setModalType('edit_vehicle'); }} className="flex-1 px-4 py-3 bg-white hover:bg-yellow-400 rounded-xl transition-colors flex items-center justify-center shadow-sm border text-slate-400 hover:text-black gap-2 text-[10px] font-black uppercase"><Icon name="settings" size={14}/> EDITAR</button>
+              <button onClick={() => { setForm(prev => ({...prev, nombre: activeVehicle.nombre, marca: activeVehicle.marca, modelo: activeVehicle.modelo, serie: activeVehicle.serie, patente: activeVehicle.patente, serviceInterval: activeVehicle.serviceInterval})); setModalType('edit_vehicle'); }} className="flex-1 px-4 py-3 bg-white hover:bg-yellow-400 rounded-xl transition-colors flex items-center justify-center shadow-sm border text-slate-400 hover:text-black gap-2 text-[10px] font-black uppercase"><Icon name="settings" size={14}/> EDITAR</button>
               <button onClick={() => handleDeleteVehicle(activeVehicle.id)} className="flex-1 px-4 py-3 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-colors flex items-center justify-center shadow-sm border border-red-100 gap-2 text-[10px] font-black uppercase"><Icon name="x" size={14}/> ELIMINAR</button>
             </div>
           )}
