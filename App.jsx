@@ -6,6 +6,7 @@ const App = () => {
     const [user, setUser] = useState(null);
     const [role, setRole] = useState(null); 
     const [userName, setUserName] = useState(''); 
+    const [userCompanyId, setUserCompanyId] = useState(null); // NUEVO: Empresa asignada al operario
     const [authLoading, setAuthLoading] = useState(true);
     const [loginEmail, setLoginEmail] = useState('');
     const [loginPassword, setLoginPassword] = useState('');
@@ -17,7 +18,8 @@ const App = () => {
         email: '', 
         password: '', 
         nombre: '', 
-        role: 'operario' 
+        role: 'operario',
+        companyId: '' // NUEVO: Empresa al crear
     });
     const [editingUserId, setEditingUserId] = useState(null); 
     const [newPassword, setNewPassword] = useState('');
@@ -80,6 +82,11 @@ const App = () => {
                             setRole(userData.role);
                             setUserName(userData.nombre || 'USUARIO BND'); 
                             
+                            // Si es operario, guardamos su empresa asignada
+                            if (userData.companyId) {
+                                setUserCompanyId(userData.companyId);
+                            }
+                            
                             if (userData.requiresPasswordChange) {
                                 setModalType('force_password_change');
                             }
@@ -118,6 +125,7 @@ const App = () => {
                     setUser(null); 
                     setRole(null);
                     setUserName('');
+                    setUserCompanyId(null);
                     setLoading(false); 
                     setAuthLoading(false); 
                 }
@@ -142,6 +150,13 @@ const App = () => {
         }
     }, [role]);
 
+    // Forzar la vista de "Mi Flota" para Operarios
+    useEffect(() => {
+        if (role === 'operario' && userCompanyId && !selectedCompanyId) {
+            setSelectedCompanyId(userCompanyId);
+        }
+    }, [role, userCompanyId, selectedCompanyId]);
+
     // --- MANEJADORES DE AUTENTICACIÓN Y GESTIÓN DE USUARIOS ---
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -160,10 +175,17 @@ const App = () => {
         await fb.signOut(auth); 
         setActiveTab('dashboard'); 
         setIsolatedVehicleId(null); 
+        setSelectedCompanyId(null);
     };
 
     const handleRegisterUser = async (e) => {
         e.preventDefault();
+        
+        if (newUser.role === 'operario' && !newUser.companyId) {
+            alert("Por favor, asigne una empresa al operario.");
+            return;
+        }
+
         try {
             const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`, {
                 method: 'POST', 
@@ -184,11 +206,12 @@ const App = () => {
                 nombre: newUser.nombre,
                 role: newUser.role, 
                 email: newUser.email, 
+                companyId: newUser.role === 'operario' ? newUser.companyId : null,
                 requiresPasswordChange: true
             });
             
             setModalType(null); 
-            setNewUser({ email: '', password: '', nombre: '', role: 'operario' });
+            setNewUser({ email: '', password: '', nombre: '', role: 'operario', companyId: '' });
             alert("Usuario creado exitosamente. Se le pedirá cambiar la contraseña en su primer ingreso.");
             
         } catch (err) { 
@@ -197,20 +220,27 @@ const App = () => {
     };
 
     const handleUpdateUserSubmit = async () => {
+        if (newUser.role === 'operario' && !newUser.companyId) {
+            alert("Por favor, asigne una empresa al operario.");
+            return;
+        }
+
         try {
             await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "users", editingUserId), {
                 nombre: newUser.nombre,
-                role: newUser.role
+                role: newUser.role,
+                companyId: newUser.role === 'operario' ? newUser.companyId : null
             });
             
             if (user && editingUserId === user.uid) {
                 setUserName(newUser.nombre);
                 setRole(newUser.role);
+                if(newUser.role === 'operario') setUserCompanyId(newUser.companyId);
             }
 
             setModalType(null);
             setEditingUserId(null);
-            setNewUser({ email: '', password: '', nombre: '', role: 'operario' });
+            setNewUser({ email: '', password: '', nombre: '', role: 'operario', companyId: '' });
         } catch (error) {
             alert("Hubo un error al actualizar los datos del usuario.");
         }
@@ -233,14 +263,6 @@ const App = () => {
         }
     };
 
-    const handleUpdateUserRole = async (uid, newRole) => {
-        if(window.confirm(`¿Estás seguro de cambiar los permisos a ${newRole.toUpperCase()}?`)) {
-            await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "users", uid), { 
-                role: newRole 
-            });
-        }
-    };
-
     // --- LÓGICA DE NEGOCIO Y CÁLCULOS MEMOIZADOS ---
     const activeCompany = useMemo(() => {
         return companies.find(c => c.id === selectedCompanyId);
@@ -258,10 +280,13 @@ const App = () => {
         return activeCompany.vehiculos;
     }, [activeCompany, isolatedVehicleId]);
 
+    // Alertas filtradas por permisos
     const alerts = useMemo(() => {
         let list = [];
         
-        companies.forEach(emp => {
+        const relevantCompanies = role === 'admin' ? companies : companies.filter(c => c.id === userCompanyId);
+        
+        relevantCompanies.forEach(emp => {
             const fuelPerc = ((emp.currentFuel || 0) / (emp.tankCapacity || 1000)) * 100;
             if (fuelPerc <= 25) {
                 list.push({ 
@@ -299,12 +324,15 @@ const App = () => {
         });
         
         return list.sort((a,b) => (a.type === 'BREAKDOWN' ? -1 : 1));
-    }, [companies]);
+    }, [companies, role, userCompanyId]);
 
+    // Proyecciones filtradas por permisos
     const projectionsData = useMemo(() => {
         let list = [];
         
-        companies.forEach(emp => {
+        const relevantCompanies = role === 'admin' ? companies : companies.filter(c => c.id === userCompanyId);
+        
+        relevantCompanies.forEach(emp => {
             (emp.vehiculos || []).forEach(veh => {
                 const regs = (veh.eventos || []).filter(e => e.tipo === 'REGISTRO').sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
                 let avg = 0; 
@@ -335,7 +363,7 @@ const App = () => {
         });
         
         return list.sort((a,b) => (a.estDate || Infinity) - (b.estDate || Infinity));
-    }, [companies]);
+    }, [companies, role, userCompanyId]);
 
     // --- GRÁFICOS (CHART.JS) ---
     useEffect(() => {
@@ -582,7 +610,7 @@ const App = () => {
         });
         
         setModalType(null); 
-        setActiveTab('companies');
+        if(role === 'admin') setActiveTab('companies');
     };
 
     const handleHistoricalData = async () => {
@@ -684,15 +712,30 @@ const App = () => {
                 (txt) => {
                     if (txt.startsWith("sp-asset:")) { 
                         const [_, cid, vid] = txt.split(":"); 
+                        
+                        // Validación de seguridad para el operario
+                        if (role === 'operario' && cid !== userCompanyId) {
+                            alert("Acceso denegado: Este equipo no pertenece a tu flota asignada.");
+                            setScannerActive(false); 
+                            scannerRef.current.stop(); 
+                            return;
+                        }
+
                         setSelectedCompanyId(cid); 
                         setIsolatedVehicleId(vid); 
+                        setActiveVehicleId(vid); // Vital para abrir el modal automático
                         setActiveTab('companies'); 
                         setScannerActive(false); 
                         scannerRef.current.stop(); 
+                        
+                        // Apertura automática del modal de carga (Log)
+                        setTimeout(() => {
+                            setModalType('log');
+                        }, 500);
                     }
                 }, 
                 (err) => {
-                    // Errores de lectura se ignoran en silencio
+                    // Errores de lectura se ignoran en silencio para no saturar consola
                 }
             ).catch(e => console.error("Error al iniciar cámara:", e));
         }, 500);
@@ -848,7 +891,7 @@ const App = () => {
     // --- CONSTRUCCIÓN DEL MENÚ DINÁMICO ---
     const nav = [ 
         { id: 'dashboard', label: 'Alertas', icon: 'dashboard' }, 
-        { id: 'companies', label: 'Directorio', icon: 'company' }, 
+        { id: 'companies', label: role === 'admin' ? 'Directorio' : 'Mi Flota', icon: 'company' }, 
         { id: 'calendar', label: 'Proyecciones', icon: 'calendar' } 
     ];
     
@@ -897,7 +940,7 @@ const App = () => {
                             key={item.id} 
                             onClick={() => { 
                                 setActiveTab(item.id); 
-                                setSelectedCompanyId(null); 
+                                if(role === 'admin') setSelectedCompanyId(null); 
                                 setIsolatedVehicleId(null); 
                                 setSidebarOpen(false); 
                             }} 
@@ -998,22 +1041,20 @@ const App = () => {
                         </div>
                     )}
 
-                    {/* VISTA: DIRECTORIO DE EMPRESAS */}
-                    {activeTab === 'companies' && !activeCompany && (
+                    {/* VISTA: DIRECTORIO DE EMPRESAS (SÓLO ADMIN) */}
+                    {activeTab === 'companies' && !activeCompany && role === 'admin' && (
                         <div className="max-w-6xl mx-auto animate-fade-in">
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                                 <h2 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter">Directorio</h2>
-                                {role === 'admin' && (
-                                    <button 
-                                        onClick={() => { 
-                                            setForm({nombre:'', cuit:'', responsable:'', tankCapacity:1000}); 
-                                            setModalType('company'); 
-                                        }} 
-                                        className="btn-accent px-5 py-3 rounded-xl w-full sm:w-auto text-xs font-black shadow-md"
-                                    >
-                                        + NUEVO CLIENTE
-                                    </button>
-                                )}
+                                <button 
+                                    onClick={() => { 
+                                        setForm({nombre:'', cuit:'', responsable:'', tankCapacity:1000}); 
+                                        setModalType('company'); 
+                                    }} 
+                                    className="btn-accent px-5 py-3 rounded-xl w-full sm:w-auto text-xs font-black shadow-md"
+                                >
+                                    + NUEVO CLIENTE
+                                </button>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
                                 {companies.map(emp => (
@@ -1038,32 +1079,27 @@ const App = () => {
                                                 ABRIR FLOTA
                                             </button>
                                             
-                                            {/* BOTONES DE ADMIN (Integrados al layout para no superponer) */}
-                                            {role === 'admin' && (
-                                                <>
-                                                    <button 
-                                                        onClick={() => { 
-                                                            setSelectedCompanyId(emp.id); 
-                                                            setForm({
-                                                                nombre: emp.nombre, 
-                                                                cuit: emp.cuit, 
-                                                                responsable: emp.responsable, 
-                                                                tankCapacity: emp.tankCapacity
-                                                            }); 
-                                                            setModalType('edit_company'); 
-                                                        }} 
-                                                        className="px-4 py-3 bg-slate-100 hover:bg-yellow-400 rounded-xl transition-colors flex items-center justify-center shadow-sm"
-                                                    >
-                                                        <Icon name="settings" size={16}/>
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => handleDeleteCompany(emp.id)} 
-                                                        className="px-4 py-3 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-colors flex items-center justify-center shadow-sm"
-                                                    >
-                                                        <Icon name="x" size={16}/>
-                                                    </button>
-                                                </>
-                                            )}
+                                            <button 
+                                                onClick={() => { 
+                                                    setSelectedCompanyId(emp.id); 
+                                                    setForm({
+                                                        nombre: emp.nombre, 
+                                                        cuit: emp.cuit, 
+                                                        responsable: emp.responsable, 
+                                                        tankCapacity: emp.tankCapacity
+                                                    }); 
+                                                    setModalType('edit_company'); 
+                                                }} 
+                                                className="px-4 py-3 bg-slate-100 hover:bg-yellow-400 rounded-xl transition-colors flex items-center justify-center shadow-sm"
+                                            >
+                                                <Icon name="settings" size={16}/>
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDeleteCompany(emp.id)} 
+                                                className="px-4 py-3 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-colors flex items-center justify-center shadow-sm"
+                                            >
+                                                <Icon name="x" size={16}/>
+                                            </button>
                                         </div>
                                     </div>
                                 ))}
@@ -1074,15 +1110,17 @@ const App = () => {
                     {/* VISTA: FLOTA DE LA EMPRESA SELECCIONADA */}
                     {activeCompany && (
                         <div className="max-w-5xl mx-auto animate-fade-in">
-                            <button 
-                                onClick={() => { 
-                                    setSelectedCompanyId(null); 
-                                    setIsolatedVehicleId(null); 
-                                }} 
-                                className="flex items-center gap-2 md:gap-3 text-xs md:text-sm font-black uppercase mb-6 md:mb-8 text-slate-400 hover:text-slate-900 transition-colors"
-                            >
-                                <Icon name="chevronLeft" size={16}/> VOLVER AL DIRECTORIO
-                            </button>
+                            {role === 'admin' && (
+                                <button 
+                                    onClick={() => { 
+                                        setSelectedCompanyId(null); 
+                                        setIsolatedVehicleId(null); 
+                                    }} 
+                                    className="flex items-center gap-2 md:gap-3 text-xs md:text-sm font-black uppercase mb-6 md:mb-8 text-slate-400 hover:text-slate-900 transition-colors"
+                                >
+                                    <Icon name="chevronLeft" size={16}/> VOLVER AL DIRECTORIO
+                                </button>
+                            )}
                             
                             <div className="glass-card p-6 md:p-8 bg-slate-900 text-white mb-6 md:mb-8 relative overflow-hidden">
                                 <div className="absolute top-0 right-0 w-48 h-48 md:w-64 md:h-64 bg-yellow-400/10 blur-[80px] md:blur-[100px] pointer-events-none" />
@@ -1306,10 +1344,13 @@ const App = () => {
                             <div className="space-y-4">
                                 <div className="flex justify-between items-end border-b border-slate-200 pb-4">
                                     <h2 className="text-2xl font-black uppercase italic tracking-tighter">Usuarios</h2>
-                                    <button onClick={() => { 
-                                        setNewUser({ email: '', password: '', nombre: '', role: 'operario' }); 
-                                        setModalType('register_user'); 
-                                    }} className="btn-accent px-5 py-2.5 rounded-xl text-[10px] font-black shadow-md">
+                                    <button 
+                                        onClick={() => { 
+                                            setNewUser({ email: '', password: '', nombre: '', role: 'operario', companyId: '' }); 
+                                            setModalType('register_user'); 
+                                        }} 
+                                        className="btn-accent px-5 py-2.5 rounded-xl text-[10px] font-black shadow-md"
+                                    >
                                         + NUEVO ACCESO
                                     </button>
                                 </div>
@@ -1319,7 +1360,7 @@ const App = () => {
                                             <tr>
                                                 <th>Nombre</th>
                                                 <th>Email</th>
-                                                <th>Nivel de Acceso</th>
+                                                <th>Rol / Empresa Asignada</th>
                                                 <th>Gestión</th>
                                             </tr>
                                         </thead>
@@ -1327,17 +1368,30 @@ const App = () => {
                                             {usersList.map(u => (
                                                 <tr key={u.uid} className="hover:bg-slate-50 transition-colors">
                                                     <td className="font-bold text-slate-900 text-xs truncate max-w-[150px]">{u.nombre || '-'}</td>
-                                                    <td className="font-black text-slate-500 italic text-xs truncate">{u.email}</td>
+                                                    <td className="font-black text-slate-500 italic text-xs truncate max-w-[150px]">{u.email}</td>
                                                     <td>
-                                                        <span className={`text-[9px] font-black uppercase px-2 py-1 rounded border ${u.role === 'admin' ? 'border-yellow-400 bg-yellow-50 text-yellow-700' : u.role === 'suspendido' ? 'border-red-500 bg-red-50 text-red-600' : 'bg-white text-slate-600 border-slate-200'}`}>
-                                                            {u.role}
-                                                        </span>
+                                                        <div className="flex flex-col gap-1 items-start">
+                                                            <span className={`text-[9px] font-black uppercase px-2 py-1 rounded border ${u.role === 'admin' ? 'border-yellow-400 bg-yellow-50 text-yellow-700' : u.role === 'suspendido' ? 'border-red-500 bg-red-50 text-red-600' : 'bg-white text-slate-600 border-slate-200'}`}>
+                                                                {u.role}
+                                                            </span>
+                                                            {u.role === 'operario' && (
+                                                                <span className="text-[8px] font-bold text-slate-400 uppercase">
+                                                                    {companies.find(c => c.id === u.companyId)?.nombre || 'Sin Empresa'}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                     <td>
                                                         <button 
                                                             onClick={() => {
                                                                 setEditingUserId(u.uid);
-                                                                setNewUser({ email: u.email, nombre: u.nombre || '', role: u.role, password: '' });
+                                                                setNewUser({ 
+                                                                    email: u.email, 
+                                                                    nombre: u.nombre || '', 
+                                                                    role: u.role, 
+                                                                    companyId: u.companyId || '',
+                                                                    password: '' 
+                                                                });
                                                                 setModalType('edit_user');
                                                             }}
                                                             className="text-[9px] font-black uppercase bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg transition-colors"
@@ -1408,10 +1462,16 @@ const App = () => {
                                 <input type="text" required className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold" placeholder="NOMBRE Y APELLIDO" onChange={e => setNewUser({...newUser, nombre: e.target.value})} />
                                 <input type="email" required className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold" placeholder="EMAIL DE ACCESO" onChange={e => setNewUser({...newUser, email: e.target.value})} />
                                 <input type="text" required className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold" placeholder="PASSWORD TEMPORAL" onChange={e => setNewUser({...newUser, password: e.target.value})} />
-                                <select className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold bg-white" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}>
+                                <select className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold bg-white appearance-none" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}>
                                     <option value="operario">Operario (Solo Carga)</option>
                                     <option value="admin">Administrador (Total)</option>
                                 </select>
+                                {newUser.role === 'operario' && (
+                                    <select className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold bg-white appearance-none border-yellow-400" value={newUser.companyId || ''} onChange={e => setNewUser({...newUser, companyId: e.target.value})}>
+                                        <option value="">Seleccione Empresa Asignada...</option>
+                                        {companies.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                                    </select>
+                                )}
                                 <button type="submit" className="btn-accent w-full px-5 py-3 rounded-xl text-sm font-black uppercase mt-2 shadow-md">CREAR ACCESO</button>
                             </form>
                         )}
@@ -1420,11 +1480,17 @@ const App = () => {
                             <div className="space-y-4">
                                 <p className="text-xs font-black uppercase text-slate-400">Editando a: {newUser.email}</p>
                                 <input type="text" required className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold" placeholder="NOMBRE Y APELLIDO" value={newUser.nombre} onChange={e => setNewUser({...newUser, nombre: e.target.value})} />
-                                <select className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold bg-white" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}>
+                                <select className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold bg-white appearance-none" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}>
                                     <option value="operario">Operario (Solo Carga)</option>
                                     <option value="admin">Administrador (Total)</option>
                                     <option value="suspendido">Suspender Acceso</option>
                                 </select>
+                                {newUser.role === 'operario' && (
+                                    <select className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold bg-white appearance-none border-yellow-400" value={newUser.companyId || ''} onChange={e => setNewUser({...newUser, companyId: e.target.value})}>
+                                        <option value="">Seleccione Empresa Asignada...</option>
+                                        {companies.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                                    </select>
+                                )}
                                 <button onClick={handleUpdateUserSubmit} className="btn-accent w-full px-5 py-3 rounded-xl text-sm font-black uppercase mt-2 shadow-md">GUARDAR CAMBIOS</button>
                             </div>
                         )}
@@ -1575,7 +1641,7 @@ const App = () => {
                         {modalType === 'qr' && (
                             <div className="space-y-6 text-center flex flex-col items-center pt-4">
                                 <p className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter">BND</p>
-                                <div className="p-6 md:p-8 bg-white rounded-3xl md:rounded-[2rem] shadow-2xl border-4 border-slate-900" id={`qr-container-${activeVehicleId}`}></div>
+                                <div className="p-6 bg-white rounded-3xl md:rounded-[2rem] shadow-xl border-[6px] border-slate-900" id={`qr-container-${activeVehicleId}`}></div>
                                 <p className="text-lg font-black text-slate-800 uppercase tracking-widest">{activeVehicle?.nombre}</p>
                                 <button onClick={handlePrintQR} className="btn-premium w-full px-5 py-4 rounded-xl text-sm font-black uppercase shadow-xl mt-4">IMPRIMIR ETIQUETA</button>
                             </div>
