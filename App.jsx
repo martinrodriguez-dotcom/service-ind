@@ -1,17 +1,23 @@
 const { useState, useEffect, useMemo, useRef } = React;
 
-const { Icon, ModalComp, FuelTankCapsule, db, auth, APP_ID, fb } = window;
+const { Icon, ModalComp, FuelTankCapsule, db, auth, APP_ID, fb, FIREBASE_API_KEY } = window;
 
 const App = () => {
-    // ESTADOS DE AUTENTICACIÓN Y ROLES
+    // --- ESTADOS DE AUTENTICACIÓN Y ROLES ---
     const [user, setUser] = useState(null);
-    const [role, setRole] = useState(null); // 'admin' o 'operario'
+    const [role, setRole] = useState(null); 
     const [authLoading, setAuthLoading] = useState(true);
     const [loginEmail, setLoginEmail] = useState('');
     const [loginPassword, setLoginPassword] = useState('');
     const [loginError, setLoginError] = useState('');
 
-    // ESTADOS DE LA APLICACIÓN
+    // Estados para la creación y cambio de contraseñas
+    const [newUser, setNewUser] = useState({ email: '', password: '', role: 'operario' });
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [pwdError, setPwdError] = useState('');
+
+    // --- ESTADOS DE LA APLICACIÓN ---
     const [activeTab, setActiveTab] = useState('dashboard');
     const [selectedCompanyId, setSelectedCompanyId] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -48,26 +54,31 @@ const App = () => {
                 if (u) {
                     setUser(u);
                     
-                    // 1. Buscamos el rol del usuario en la base de datos
+                    // 1. Buscamos el rol y estado de contraseña en la BD
                     try {
                         const userDocRef = fb.doc(db, "artifacts", APP_ID, "public", "data", "users", u.uid);
                         const userDoc = await fb.getDoc(userDocRef);
                         if(userDoc.exists()) {
-                            setRole(userDoc.data().role); // 'admin' o 'operario'
+                            const userData = userDoc.data();
+                            setRole(userData.role); 
+                            
+                            // Si requiere cambio de clave, bloqueamos la app con el Modal
+                            if (userData.requiresPasswordChange) {
+                                setModalType('force_password_change');
+                            }
                         } else {
-                            setRole('operario'); // Por defecto, si no tiene rol asignado, es operario
+                            setRole('operario');
                         }
                     } catch (error) {
                         setRole('operario');
                     }
 
-                    // 2. Cargamos Configuración
+                    // 2. Cargamos Configuración y Empresas
                     const configRef = fb.doc(db, "artifacts", APP_ID, "public", "data", "config", "bnd_info");
                     fb.getDoc(configRef).then(snap => { 
                         if(snap.exists()) setBndSettings(snap.data()); 
                     });
 
-                    // 3. Cargamos Empresas
                     const q = fb.collection(db, "artifacts", APP_ID, "public", "data", "companies");
                     const unsub = fb.onSnapshot(q, (snapshot) => {
                         setCompanies(snapshot.docs.map(document => ({ id: document.id, ...document.data() })));
@@ -88,7 +99,7 @@ const App = () => {
         else window.addEventListener('firebase-ready', initSync);
     }, []);
 
-    // --- FUNCIONES DE AUTENTICACIÓN ---
+    // --- FUNCIONES DE AUTENTICACIÓN Y USUARIOS ---
     const handleLogin = async (e) => {
         e.preventDefault();
         setAuthLoading(true);
@@ -103,7 +114,68 @@ const App = () => {
 
     const handleLogout = async () => {
         await fb.signOut(auth);
-        setActiveTab('dashboard'); // Reseteamos la vista al salir
+        setActiveTab('dashboard'); 
+        setLoginEmail('');
+        setLoginPassword('');
+    };
+
+    const handleRegisterUser = async (e) => {
+        e.preventDefault();
+        if (!newUser.email || !newUser.password) return;
+        
+        try {
+            // Utilizamos la API REST de Firebase para crear el usuario sin desloguear al Admin actual
+            const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: newUser.email, password: newUser.password, returnSecureToken: true })
+            });
+            
+            const data = await response.json();
+            if (data.error) throw new Error(data.error.message);
+
+            // Guardamos el rol y la obligación de cambiar clave en Firestore usando el UID (localId) generado
+            await fb.setDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "users", data.localId), {
+                role: newUser.role,
+                email: newUser.email,
+                requiresPasswordChange: true
+            });
+
+            setModalType(null);
+            setNewUser({ email: '', password: '', role: 'operario' });
+            alert(`Usuario ${newUser.email} creado con éxito.`);
+        } catch (err) {
+            console.error(err);
+            alert("Error al crear usuario: " + err.message);
+        }
+    };
+
+    const handleChangePassword = async (e) => {
+        e.preventDefault();
+        if (newPassword !== confirmPassword) {
+            setPwdError('Las contraseñas no coinciden.');
+            return;
+        }
+        if (newPassword.length < 6) {
+            setPwdError('La contraseña debe tener al menos 6 caracteres.');
+            return;
+        }
+
+        try {
+            // Actualiza la contraseña en Firebase Auth
+            await fb.updatePassword(auth.currentUser, newPassword);
+            
+            // Quita la obligación de cambio en Firestore
+            await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "users", auth.currentUser.uid), {
+                requiresPasswordChange: false
+            });
+            
+            setModalType(null);
+            setNewPassword('');
+            setConfirmPassword('');
+        } catch (err) {
+            setPwdError('Error interno. Cierra sesión e inténtalo de nuevo.');
+        }
     };
 
     // --- CÁLCULOS MEMOIZADOS ---
@@ -350,16 +422,14 @@ const App = () => {
         { id: 'companies', label: 'Directorio', icon: 'company' },
         { id: 'calendar', label: 'Proyecciones', icon: 'calendar' }
     ];
-    // Solo el administrador puede ver la configuración general
     if (role === 'admin') {
         navItems.push({ id: 'config', label: 'Configuración', icon: 'settings' });
     }
 
-    // --- INTERFAZ PRINCIPAL (Si el usuario está logueado) ---
+    // --- INTERFAZ PRINCIPAL ---
     return (
         <div className="flex h-screen bg-slate-50 relative overflow-hidden leading-none text-slate-900">
             
-            {/* SIDEBAR */}
             <aside className={`sidebar-mobile lg:w-64 bg-white border-r border-slate-200 p-6 flex flex-col lg:static ${sidebarOpen ? 'open' : ''}`}>
                 <div className="flex items-center justify-between lg:justify-start gap-3 mb-10 leading-none">
                     <div className="flex items-center gap-2.5">
@@ -385,7 +455,6 @@ const App = () => {
                 </div>
             </aside>
 
-            {/* CONTENIDO PRINCIPAL */}
             <main className="flex-1 p-5 sm:p-8 lg:p-10 overflow-y-auto relative leading-none">
                 <header className="lg:hidden absolute top-0 left-0 w-full h-16 flex items-center justify-between px-6 bg-white/80 backdrop-blur-md z-40 border-b leading-none">
                      <button onClick={() => setSidebarOpen(true)} className="p-2 bg-slate-50 rounded-lg leading-none"><Icon name="menu" size={18}/></button>
@@ -472,19 +541,33 @@ const App = () => {
                 )}
 
                 {activeTab === 'config' && role === 'admin' && (
-                    <div className="max-w-3xl mx-auto space-y-10 animate-fade-in pt-10 lg:pt-0 leading-none">
-                        <h2 className="text-4xl font-black uppercase italic tracking-tighter leading-none">Configuración</h2>
-                        <div className="glass-card p-10 space-y-8 shadow-2xl leading-none">
-                            <div className="grid grid-cols-1 gap-6 leading-none">
-                                <div className="space-y-2 leading-none"><label className="text-[10px] font-black uppercase text-slate-400 italic ml-2">Razón Social</label><input className="w-full input-premium font-black shadow-inner" value={bndSettings.name} onChange={e => setBndSettings({...bndSettings, name: e.target.value})} /></div>
-                                <div className="space-y-2 leading-none"><label className="text-[10px] font-black uppercase text-slate-400 italic ml-2">Eslogan Corporativo</label><input className="w-full input-premium shadow-inner" value={bndSettings.description} onChange={e => setBndSettings({...bndSettings, description: e.target.value})} /></div>
-                                <div className="space-y-2 leading-none"><label className="text-[10px] font-black uppercase text-slate-400 italic ml-2">Dirección Física</label><input className="w-full input-premium shadow-inner" value={bndSettings.address} onChange={e => setBndSettings({...bndSettings, address: e.target.value})} /></div>
-                                <div className="grid grid-cols-2 gap-4 leading-none">
-                                    <div className="space-y-2 leading-none"><label className="text-[10px] font-black uppercase text-slate-400 italic ml-2">Teléfono</label><input className="w-full input-premium shadow-inner" value={bndSettings.phone} onChange={e => setBndSettings({...bndSettings, phone: e.target.value})} /></div>
-                                    <div className="space-y-2 leading-none"><label className="text-[10px] font-black uppercase text-slate-400 italic ml-2">Email Técnico</label><input className="w-full input-premium shadow-inner" value={bndSettings.email} onChange={e => setBndSettings({...bndSettings, email: e.target.value})} /></div>
+                    <div className="max-w-3xl mx-auto space-y-10 animate-fade-in pt-10 lg:pt-0 leading-none pb-20">
+                        
+                        <div className="space-y-6">
+                            <h2 className="text-4xl font-black uppercase italic tracking-tighter leading-none">Configuración</h2>
+                            <div className="glass-card p-10 space-y-8 shadow-2xl leading-none">
+                                <div className="grid grid-cols-1 gap-6 leading-none">
+                                    <div className="space-y-2 leading-none"><label className="text-[10px] font-black uppercase text-slate-400 italic ml-2">Razón Social</label><input className="w-full input-premium font-black shadow-inner" value={bndSettings.name} onChange={e => setBndSettings({...bndSettings, name: e.target.value})} /></div>
+                                    <div className="space-y-2 leading-none"><label className="text-[10px] font-black uppercase text-slate-400 italic ml-2">Eslogan Corporativo</label><input className="w-full input-premium shadow-inner" value={bndSettings.description} onChange={e => setBndSettings({...bndSettings, description: e.target.value})} /></div>
+                                    <div className="space-y-2 leading-none"><label className="text-[10px] font-black uppercase text-slate-400 italic ml-2">Dirección Física</label><input className="w-full input-premium shadow-inner" value={bndSettings.address} onChange={e => setBndSettings({...bndSettings, address: e.target.value})} /></div>
+                                    <div className="grid grid-cols-2 gap-4 leading-none">
+                                        <div className="space-y-2 leading-none"><label className="text-[10px] font-black uppercase text-slate-400 italic ml-2">Teléfono</label><input className="w-full input-premium shadow-inner" value={bndSettings.phone} onChange={e => setBndSettings({...bndSettings, phone: e.target.value})} /></div>
+                                        <div className="space-y-2 leading-none"><label className="text-[10px] font-black uppercase text-slate-400 italic ml-2">Email Técnico</label><input className="w-full input-premium shadow-inner" value={bndSettings.email} onChange={e => setBndSettings({...bndSettings, email: e.target.value})} /></div>
+                                    </div>
                                 </div>
+                                <button onClick={saveBndSettings} className="btn-premium w-full p-6 text-[11px] uppercase tracking-widest mt-4 shadow-2xl transition-all">Impactar Membrete</button>
                             </div>
-                            <button onClick={saveBndSettings} className="btn-premium w-full p-6 text-[11px] uppercase tracking-widest mt-4 shadow-2xl transition-all">Impactar Membrete</button>
+                        </div>
+
+                        <div className="space-y-6 pt-6">
+                            <h2 className="text-2xl font-black uppercase italic tracking-tighter leading-none">Gestión de Accesos</h2>
+                            <div className="glass-card p-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-2xl bg-slate-900 text-white border-slate-800">
+                                <div>
+                                    <h3 className="text-lg font-black uppercase italic text-yellow-400">Directorio de Usuarios</h3>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Crear nuevos Operarios o Administradores</p>
+                                </div>
+                                <button onClick={() => setModalType('register_user')} className="btn-accent px-8 py-4 text-[9px] uppercase shadow-xl w-full md:w-auto">Agregar Usuario</button>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -566,18 +649,60 @@ const App = () => {
 
             {/* --- MODALES DINÁMICOS --- */}
             {modalType && (
-                <ModalComp title={
-                    modalType === 'company' ? "Nuevo Cliente" : 
-                    modalType === 'vehicle' ? "Alta Maquinaria" : 
-                    modalType === 'log' ? "Bitácora" : 
-                    modalType === 'details' ? "Analítica" : 
-                    modalType === 'service' ? "Certificación" : 
-                    modalType === 'qr' ? "QR Unidad" : 
-                    modalType === 'repair_finish' ? "Cierre de Reparación" : 
-                    modalType === 'historical' ? "Carga Historial" : 
-                    modalType === 'downtime' ? "Reportar Rotura" : "BND Módulo"
-                } onClose={() => setModalType(null)}>
+                <ModalComp 
+                    title={
+                        modalType === 'company' ? "Nuevo Cliente" : 
+                        modalType === 'vehicle' ? "Alta Maquinaria" : 
+                        modalType === 'log' ? "Bitácora" : 
+                        modalType === 'details' ? "Analítica" : 
+                        modalType === 'service' ? "Certificación" : 
+                        modalType === 'qr' ? "QR Unidad" : 
+                        modalType === 'repair_finish' ? "Cierre de Reparación" : 
+                        modalType === 'historical' ? "Carga Historial" : 
+                        modalType === 'downtime' ? "Reportar Rotura" : 
+                        modalType === 'register_user' ? "Nuevo Usuario" :
+                        modalType === 'force_password_change' ? "" : "BND Módulo"
+                    } 
+                    onClose={() => {
+                        // Impedimos cerrar el modal si es el cambio obligatorio de contraseña
+                        if(modalType !== 'force_password_change') setModalType(null);
+                    }}
+                    hideClose={modalType === 'force_password_change'}
+                >
                     
+                    {modalType === 'register_user' && (
+                        <div className="space-y-6 leading-none">
+                            <div className="space-y-1 leading-none"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Correo Electrónico</label><input type="email" className="w-full input-premium shadow-sm leading-none" placeholder="operario@bnd.com" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} /></div>
+                            <div className="space-y-1 leading-none"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Contraseña Temporal</label><input type="text" className="w-full input-premium shadow-sm leading-none" placeholder="Min. 6 caracteres" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} /></div>
+                            <div className="space-y-1 leading-none">
+                                <label className="text-[9px] font-black uppercase text-slate-400 ml-2">Rol del Sistema</label>
+                                <select className="w-full input-premium shadow-sm leading-none appearance-none" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}>
+                                    <option value="operario">Operario (Solo Carga)</option>
+                                    <option value="admin">Administrador (Acceso Total)</option>
+                                </select>
+                            </div>
+                            <button onClick={handleRegisterUser} disabled={!newUser.email || newUser.password.length < 6} className="btn-accent w-full p-4 text-[9px] uppercase shadow-lg shadow-sm mt-4 leading-none">Crear Cuenta</button>
+                        </div>
+                    )}
+
+                    {modalType === 'force_password_change' && (
+                        <div className="space-y-8 text-center animate-fade-in leading-none">
+                            <div className="p-8 bg-yellow-50 rounded-2xl border border-yellow-200 flex flex-col items-center gap-4 shadow-xl shadow-yellow-50 leading-none">
+                                <div className="w-16 h-16 bg-yellow-400 rounded-full flex items-center justify-center shadow-lg"><Icon name="user" size={32} className="text-black"/></div>
+                                <div className="leading-none text-center">
+                                    <p className="text-2xl font-black text-yellow-600 uppercase italic leading-none">Bienvenido a BND</p>
+                                    <p className="text-[10px] font-bold text-yellow-700 uppercase mt-3 leading-relaxed">Por tu seguridad, debes cambiar tu contraseña temporal antes de continuar.</p>
+                                </div>
+                            </div>
+                            {pwdError && <p className="text-[10px] font-black text-red-500 uppercase tracking-widest">{pwdError}</p>}
+                            <div className="space-y-4">
+                                <input type="password" placeholder="Nueva Contraseña" minLength="6" className="w-full input-premium text-center font-black shadow-inner tracking-widest" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+                                <input type="password" placeholder="Confirmar Nueva Contraseña" minLength="6" className="w-full input-premium text-center font-black shadow-inner tracking-widest" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
+                            </div>
+                            <button onClick={handleChangePassword} disabled={!newPassword || !confirmPassword} className="btn-accent w-full p-6 text-[11px] uppercase shadow-2xl leading-none">Actualizar y Entrar</button>
+                        </div>
+                    )}
+
                     {modalType === 'company' && (
                         <div className="space-y-6 leading-none">
                             <div className="space-y-1 leading-none"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Nombre Comercial</label><input className="w-full input-premium font-black uppercase shadow-sm leading-none" placeholder="Razón Social" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} /></div>
