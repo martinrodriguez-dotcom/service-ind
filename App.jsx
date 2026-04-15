@@ -1,12 +1,8 @@
 const { useState, useEffect, useMemo, useRef } = React;
+const { Icon, FuelTankCapsule, db, auth, APP_ID, fb, FIREBASE_API_KEY } = window;
+const { DashboardView, CompaniesView, CompanyDetailView, ConfigView, CalendarView, MetricsView } = window.AppViews;
 
 const App = () => {
-    // 1. IMPORTACIONES SEGURAS: Las leemos aquí adentro para evitar que crashee
-    // si el navegador se demora un milisegundo en cargar los otros archivos.
-    const { Icon, db, auth, APP_ID, fb, FIREBASE_API_KEY } = window;
-    const { DashboardView, CompaniesView, CompanyDetailView, ConfigView, CalendarView, MetricsView } = window.AppViews;
-    const AppModals = window.AppModals;
-
     // --- ESTADOS DE AUTENTICACIÓN Y ROLES ---
     const [user, setUser] = useState(null);
     const [role, setRole] = useState(null); 
@@ -132,7 +128,7 @@ const App = () => {
         }
     }, [role, userCompanyId, activeTab, selectedCompanyId]);
 
-    // --- MANEJADORES DE AUTENTICACIÓN ---
+    // --- MANEJADORES DE AUTENTICACIÓN Y USUARIOS ---
     const handleLogin = async (e) => {
         e.preventDefault();
         setAuthLoading(true); setLoginError('');
@@ -180,6 +176,15 @@ const App = () => {
             setModalType(null); setEditingUserId(null);
             setNewUser({ email: '', password: '', nombre: '', role: 'operario', companyId: '' });
         } catch (error) { alert("Error al actualizar los datos."); }
+    };
+
+    // FUNCIÓN RESTAURADA: Cambiar roles desde la tabla
+    const handleUpdateUserRole = async (uid, newRole) => {
+        if(window.confirm(`¿Estás seguro de cambiar los permisos a ${newRole.toUpperCase()}?`)) {
+            await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "users", uid), { 
+                role: newRole 
+            });
+        }
     };
 
     const handleChangePassword = async (e) => {
@@ -317,7 +322,7 @@ const App = () => {
     const handleServiceReset = async () => { await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: activeCompany.vehiculos.map(x => x.id === activeVehicleId ? { ...x, ultimoServiceHoras: x.horometroTotal, eventos: [...(x.eventos || []), { id: Date.now(), tipo: 'SERVICE', fecha: new Date().toLocaleDateString(), horas: x.horometroTotal, insumos: form.insumos, nota: form.nota }] } : x) }); setModalType(null); setForm({...form, insumos: [], nota: ''}); };
     const refillTank = async () => { await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { currentFuel: activeCompany.tankCapacity }); setModalType(null); };
 
-    // --- UTILIDADES PDF Y CÓDIGO QR ---
+    // --- UTILIDADES ---
     const downloadPDF = (company, vehicle) => {
         const { jsPDF } = window.jspdf; const doc = new jsPDF();
         doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 40, 'F'); doc.setTextColor(255, 255, 255); doc.setFontSize(24); doc.text("BND", 15, 25); doc.setFontSize(10); doc.text(bndSettings.description, 15, 33);
