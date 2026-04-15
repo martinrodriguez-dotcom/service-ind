@@ -144,6 +144,7 @@ const App = () => {
 
     // --- LÓGICA DE NEGOCIO Y CÁLCULOS ---
     const activeCompany = useMemo(() => companies.find(c => c.id === selectedCompanyId), [companies, selectedCompanyId]);
+    const activeVehicle = useMemo(() => activeCompany?.vehiculos?.find(v => v.id === activeVehicleId), [activeCompany, activeVehicleId]);
 
     const alerts = useMemo(() => {
         let list = [];
@@ -342,9 +343,10 @@ const App = () => {
     if (!user) return (
         <div className="flex h-screen items-center justify-center bg-slate-900 px-6 select-none">
             <div className="glass-card p-10 w-full max-w-sm bg-white/5 backdrop-blur-2xl border-white/10 text-center">
-                <div className="w-20 h-20 bg-yellow-400 rounded-[2rem] flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-yellow-400/20">
-                    <Icon name="wrench" size={40} className="text-black"/>
-                </div>
+                
+                {/* LOGO DE LA APP EN EL LOGIN */}
+                <img src="./icon.png" alt="BND Logo" className="w-24 h-24 mx-auto mb-6 rounded-2xl shadow-2xl shadow-yellow-400/20 object-cover" />
+                
                 <h1 className="text-4xl font-black text-white italic tracking-tighter mb-2">BND</h1>
                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-10">Control de Activos</p>
                 {loginError && <p className="bg-red-500/20 text-red-400 text-[10px] font-bold p-3 rounded-xl mb-6 border border-red-500/30 uppercase">{loginError}</p>}
@@ -370,7 +372,8 @@ const App = () => {
             {/* SIDEBAR ADAPTABLE */}
             <aside className={`sidebar-mobile lg:w-72 flex flex-col p-8 border-r border-slate-100 ${sidebarOpen ? 'open' : ''}`}>
                 <div className="flex items-center gap-4 mb-12">
-                    <div className="w-12 h-12 bg-yellow-400 rounded-2xl flex items-center justify-center shadow-xl shadow-yellow-100"><Icon name="wrench" size={24} className="text-black"/></div>
+                    {/* LOGO EN EL SIDEBAR */}
+                    <img src="./icon.png" alt="BND Logo" className="w-12 h-12 rounded-xl shadow-lg shadow-yellow-100 object-cover" />
                     <div><h1 className="text-3xl font-black italic tracking-tighter">BND</h1><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{role}</p></div>
                 </div>
                 <nav className="flex-1 space-y-3">
@@ -392,7 +395,8 @@ const App = () => {
                 <header className="lg:hidden h-20 flex items-center justify-between px-6 bg-white/80 backdrop-blur-xl border-b border-slate-100 shrink-0 z-50">
                     <button onClick={() => setSidebarOpen(true)} className="p-3 bg-slate-50 rounded-xl active:scale-90 transition-transform"><Icon name="menu" size={24}/></button>
                     <span className="font-black italic tracking-tighter text-2xl">BND</span>
-                    <div className="w-11 h-11 bg-yellow-400 rounded-xl shadow-lg flex items-center justify-center"><Icon name="user" size={20}/></div>
+                    {/* LOGO EN EL HEADER MOBILE */}
+                    <img src="./icon.png" alt="BND Logo" className="w-10 h-10 rounded-xl shadow-md object-cover" />
                 </header>
 
                 <div className="flex-1 overflow-y-auto p-4 sm:p-10 space-y-8 pb-32">
@@ -619,7 +623,7 @@ const App = () => {
 
                     {modalType === 'force_password_change' && (
                         <div className="space-y-8 text-center">
-                            <div className="w-20 h-20 bg-yellow-400 rounded-[2rem] flex items-center justify-center mx-auto shadow-2xl"><Icon name="user" size={40} className="text-black"/></div>
+                            <img src="./icon.png" alt="BND Logo" className="w-20 h-20 mx-auto rounded-[2rem] shadow-2xl object-cover" />
                             <h2 className="text-3xl font-black uppercase italic leading-none">Nueva Seguridad</h2>
                             <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">Debes actualizar tu contraseña temporal para activar tu cuenta de operario.</p>
                             {pwdError && <p className="text-red-500 font-bold text-xs">{pwdError}</p>}
@@ -739,14 +743,17 @@ const App = () => {
                         </div>
                     )}
 
+                    {/* REDISEÑO DE CÓDIGO QR */}
                     {modalType === 'qr' && (
-                        <div className="space-y-10 text-center flex flex-col items-center animate-fade-in py-10">
-                            <div className="p-12 bg-white rounded-[3.5rem] shadow-2xl border-4 border-slate-900" id={`qr-container-${activeVehicleId}`}></div>
-                            <div className="space-y-2">
-                                <p className="text-2xl font-black italic uppercase">BND IDENTIDAD</p>
-                                <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em]">{activeVehicleId?.slice(-6)}</p>
+                        <div className="space-y-6 text-center flex flex-col items-center animate-fade-in py-8">
+                            <div className="space-y-1">
+                                <p className="text-5xl font-black italic uppercase tracking-tighter">BND</p>
                             </div>
-                            <button onClick={() => window.print()} className="btn-premium w-full text-lg shadow-2xl">IMPRIMIR ETIQUETA</button>
+                            <div className="p-8 bg-white rounded-[2rem] shadow-2xl border-4 border-slate-900" id={`qr-container-${activeVehicleId}`}></div>
+                            <div className="space-y-1">
+                                <p className="text-xl font-black text-slate-800 uppercase tracking-widest">{activeVehicle?.nombre}</p>
+                            </div>
+                            <button onClick={() => window.print()} className="btn-premium w-full text-lg shadow-2xl mt-4">IMPRIMIR ETIQUETA</button>
                         </div>
                     )}
 
