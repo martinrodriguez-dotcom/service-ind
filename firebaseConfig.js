@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getFirestore, collection, onSnapshot, addDoc, updateDoc, doc, arrayUnion, query, setDoc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
 // Credenciales de tu proyecto
 const firebaseConfig = {
@@ -15,10 +15,12 @@ const firebaseConfig = {
 // Inicialización
 const app = initializeApp(firebaseConfig);
 
-// Exponemos las herramientas al objeto global 'window' para que App.jsx las pueda leer nativamente
+// Exponemos las herramientas al objeto global 'window' para que App.jsx las pueda leer
 window.db = getFirestore(app);
 window.auth = getAuth(app);
 window.APP_ID = "bnd-pro-definitive-v99";
+
+// Empaquetamos todo, incluyendo las nuevas funciones de Login y Logout
 window.fb = { 
     collection, 
     onSnapshot, 
@@ -30,18 +32,12 @@ window.fb = {
     setDoc, 
     getDoc, 
     deleteDoc, 
-    onAuthStateChanged 
+    onAuthStateChanged,
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
+    signOut
 };
 
-// Autenticación automática
-const initAuth = async () => {
-    try {
-        await signInAnonymously(window.auth);
-        // Disparamos un evento para avisarle a React que Firebase está listo
-        window.dispatchEvent(new Event('firebase-ready'));
-    } catch (e) {
-        console.error("Error crítico de Autenticación en Firebase:", e);
-    }
-};
-
-initAuth();
+// Como ahora tendremos una pantalla de Login, ya NO iniciamos sesión de forma anónima.
+// Simplemente le avisamos a la aplicación que Firebase ya cargó sus motores.
+window.dispatchEvent(new Event('firebase-ready'));
