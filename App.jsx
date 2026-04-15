@@ -5,18 +5,21 @@ const App = () => {
     // --- ESTADOS DE AUTENTICACIÓN Y ROLES ---
     const [user, setUser] = useState(null);
     const [role, setRole] = useState(null); 
+    const [userName, setUserName] = useState(''); // NUEVO: Guarda el nombre del usuario logueado
     const [authLoading, setAuthLoading] = useState(true);
     const [loginEmail, setLoginEmail] = useState('');
     const [loginPassword, setLoginPassword] = useState('');
     const [loginError, setLoginError] = useState('');
     const [usersList, setUsersList] = useState([]);
 
-    // --- ESTADOS PARA GESTIÓN DE CONTRASEÑAS Y NUEVOS USUARIOS ---
+    // --- ESTADOS PARA GESTIÓN DE CONTRASEÑAS Y USUARIOS ---
     const [newUser, setNewUser] = useState({ 
         email: '', 
         password: '', 
+        nombre: '', 
         role: 'operario' 
     });
+    const [editingUserId, setEditingUserId] = useState(null); // NUEVO: Para editar usuarios
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [pwdError, setPwdError] = useState('');
@@ -74,7 +77,8 @@ const App = () => {
                                 return;
                             }
                             
-                            setRole(userData.role); 
+                            setRole(userData.role);
+                            setUserName(userData.nombre || 'USUARIO BND'); // Cargamos el nombre
                             
                             if (userData.requiresPasswordChange) {
                                 setModalType('force_password_change');
@@ -82,13 +86,16 @@ const App = () => {
                         } else {
                             await fb.setDoc(userDocRef, { 
                                 email: u.email, 
-                                role: 'operario', 
+                                nombre: 'Admin Master',
+                                role: 'admin', // Si es la primera vez que inicia, le damos admin por seguridad
                                 requiresPasswordChange: false 
                             });
-                            setRole('operario');
+                            setRole('admin');
+                            setUserName('Admin Master');
                         }
                     } catch (e) { 
                         setRole('operario'); 
+                        setUserName('Operario BND');
                     }
 
                     const configRef = fb.doc(db, "artifacts", APP_ID, "public", "data", "config", "bnd_info");
@@ -109,7 +116,8 @@ const App = () => {
                     
                 } else { 
                     setUser(null); 
-                    setRole(null); 
+                    setRole(null);
+                    setUserName('');
                     setLoading(false); 
                     setAuthLoading(false); 
                 }
@@ -134,7 +142,7 @@ const App = () => {
         }
     }, [role]);
 
-    // --- MANEJADORES DE AUTENTICACIÓN ---
+    // --- MANEJADORES DE AUTENTICACIÓN Y GESTIÓN DE USUARIOS ---
     const handleLogin = async (e) => {
         e.preventDefault();
         setAuthLoading(true); 
@@ -173,17 +181,39 @@ const App = () => {
             }
             
             await fb.setDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "users", data.localId), {
+                nombre: newUser.nombre,
                 role: newUser.role, 
                 email: newUser.email, 
                 requiresPasswordChange: true
             });
             
             setModalType(null); 
-            setNewUser({ email: '', password: '', role: 'operario' });
-            alert("Usuario creado. Se le pedirá cambiar la contraseña en su primer ingreso.");
+            setNewUser({ email: '', password: '', nombre: '', role: 'operario' });
+            alert("Usuario creado exitosamente. Se le pedirá cambiar la contraseña en su primer ingreso.");
             
         } catch (err) { 
-            alert(err.message); 
+            alert("Error al crear usuario: " + err.message); 
+        }
+    };
+
+    const handleUpdateUserSubmit = async () => {
+        try {
+            await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "users", editingUserId), {
+                nombre: newUser.nombre,
+                role: newUser.role
+            });
+            
+            // Si el usuario se edita a sí mismo, actualizamos su nombre en la interfaz al instante
+            if (user && editingUserId === user.uid) {
+                setUserName(newUser.nombre);
+                setRole(newUser.role);
+            }
+
+            setModalType(null);
+            setEditingUserId(null);
+            setNewUser({ email: '', password: '', nombre: '', role: 'operario' });
+        } catch (error) {
+            alert("Hubo un error al actualizar los datos del usuario.");
         }
     };
 
@@ -201,14 +231,6 @@ const App = () => {
             setModalType(null);
         } catch (err) { 
             setPwdError('Error al actualizar. Intenta cerrar sesión y volver a entrar.'); 
-        }
-    };
-
-    const handleUpdateUserRole = async (uid, newRole) => {
-        if(window.confirm(`¿Estás seguro de cambiar los permisos a ${newRole.toUpperCase()}?`)) {
-            await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "users", uid), { 
-                role: newRole 
-            });
         }
     };
 
@@ -663,7 +685,7 @@ const App = () => {
                     }
                 }, 
                 (err) => {
-                    // Errores de lectura se ignoran en silencio
+                    // Errores de lectura se ignoran en silencio para no saturar la consola
                 }
             ).catch(e => console.error("Error al iniciar cámara:", e));
         }, 500);
@@ -756,7 +778,7 @@ const App = () => {
     // --- VISTAS DE CARGA Y LOGIN ---
     if (authLoading || loading) {
         return (
-            <div className="h-[100dvh] flex flex-col items-center justify-center bg-slate-900 text-white font-black uppercase tracking-[0.2em] animate-pulse">
+            <div className="h-[100dvh] flex flex-col items-center justify-center bg-slate-900 text-white font-black uppercase tracking-[0.2em] animate-pulse w-full">
                 Cargando BND...
             </div>
         );
@@ -764,7 +786,7 @@ const App = () => {
 
     if (!user) {
         return (
-            <div className="flex h-[100dvh] items-center justify-center bg-slate-900 px-4 md:px-6 select-none">
+            <div className="flex h-[100dvh] items-center justify-center bg-slate-900 px-4 md:px-6 select-none w-full" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
                 <div className="glass-card p-8 md:p-12 w-full max-w-sm md:max-w-md bg-white/5 backdrop-blur-2xl border-white/10 text-center">
                     <img 
                         src="./icon.png" 
@@ -824,9 +846,17 @@ const App = () => {
         nav.push({ id: 'config', label: 'Admin', icon: 'settings' });
     }
 
-    // --- INTERFAZ PRINCIPAL ---
+    // --- INTERFAZ PRINCIPAL (RENDERIZADO HTML/JSX) ---
     return (
-        <div className="flex h-[100dvh] bg-slate-50 overflow-hidden select-none">
+        <div 
+            className="flex h-[100dvh] bg-slate-50 overflow-hidden select-none w-full"
+            style={{ 
+                paddingTop: 'env(safe-area-inset-top)', 
+                paddingBottom: 'env(safe-area-inset-bottom)',
+                paddingLeft: 'env(safe-area-inset-left)',
+                paddingRight: 'env(safe-area-inset-right)'
+            }}
+        >
             
             {/* OVERLAY MOBILE ESTRICTO CON TAILWIND */}
             {sidebarOpen && (
@@ -836,9 +866,9 @@ const App = () => {
                 />
             )}
             
-            {/* SIDEBAR NATIVO TAILWIND */}
+            {/* SIDEBAR ADAPTABLE (PC/Mobile) */}
             <aside className={`fixed inset-y-0 left-0 z-[200] w-72 bg-white flex flex-col p-6 md:p-8 border-r border-slate-100 transform transition-transform duration-300 lg:relative lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-                <div className="flex items-center gap-4 mb-8 md:mb-10">
+                <div className="flex items-center gap-4 mb-8">
                     <img 
                         src="./icon.png" 
                         alt="BND" 
@@ -847,6 +877,7 @@ const App = () => {
                     <div>
                         <h1 className="text-2xl md:text-3xl font-black italic tracking-tighter">BND</h1>
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{role}</p>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase truncate max-w-[150px] mt-0.5">{userName}</p>
                     </div>
                 </div>
                 
@@ -860,7 +891,7 @@ const App = () => {
                                 setIsolatedVehicleId(null); 
                                 setSidebarOpen(false); 
                             }} 
-                            className={`w-full px-4 py-3 rounded-xl flex items-center gap-3 font-bold text-sm transition-all ${activeTab === item.id ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-100'}`}
+                            className={`w-full px-4 py-3 rounded-xl flex items-center gap-3 font-bold text-xs md:text-sm transition-all ${activeTab === item.id ? 'bg-slate-900 text-white shadow-lg shadow-slate-300' : 'text-slate-400 hover:bg-slate-100'}`}
                         >
                             <Icon name={item.icon} size={18}/> {item.label}
                         </button>
@@ -870,7 +901,7 @@ const App = () => {
                 <div className="pt-4 border-t border-slate-100 space-y-3 mt-auto">
                     <button 
                         onClick={startScanner} 
-                        className="btn-accent px-4 py-3 w-full rounded-xl text-sm font-black flex items-center justify-center gap-2 shadow-md"
+                        className="btn-accent px-4 py-3 w-full rounded-xl text-xs md:text-sm font-black shadow-md flex items-center justify-center gap-2"
                     >
                         <Icon name="qr" size={16}/> ESCANEAR
                     </button>
@@ -884,25 +915,25 @@ const App = () => {
             </aside>
 
             {/* CONTENEDOR DE CONTENIDO PRINCIPAL */}
-            <main className="flex-1 flex flex-col h-[100dvh] overflow-hidden relative">
+            <main className="flex-1 flex flex-col h-full overflow-hidden">
                 
                 {/* HEADER MOBILE */}
-                <header className="lg:hidden h-16 flex items-center justify-between px-5 bg-white/90 backdrop-blur-md border-b border-slate-100 shrink-0 z-50">
+                <header className="lg:hidden h-16 sm:h-20 flex items-center justify-between px-5 bg-white/90 backdrop-blur-md border-b border-slate-100 shrink-0 z-50">
                     <button 
                         onClick={() => setSidebarOpen(true)} 
                         className="p-2 bg-slate-50 rounded-lg active:scale-95"
                     >
                         <Icon name="menu" size={24}/>
                     </button>
-                    <span className="font-black italic tracking-tighter text-xl">BND</span>
+                    <span className="font-black italic tracking-tighter text-xl sm:text-2xl">BND</span>
                     <img 
                         src="./icon.png" 
                         alt="BND" 
-                        className="w-8 h-8 rounded-lg shadow-sm object-cover" 
+                        className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg shadow-sm object-cover" 
                     />
                 </header>
 
-                <div className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 space-y-6 md:space-y-8 pb-24 md:pb-10">
+                <div className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 space-y-6 md:space-y-8 pb-32">
                     
                     {/* VISTA: PANEL DE ALERTAS */}
                     {activeTab === 'dashboard' && (
@@ -912,7 +943,7 @@ const App = () => {
                                 {alerts.map((a, i) => (
                                     <div 
                                         key={i} 
-                                        className={`glass-card p-4 md:p-5 flex flex-col md:flex-row items-center gap-4 md:gap-5 border-l-[8px] md:border-l-[12px] ${a.type === 'BREAKDOWN' ? 'border-l-red-500' : 'border-l-yellow-400'}`}
+                                        className={`glass-card p-4 md:p-5 flex flex-col md:flex-row items-center gap-4 border-l-[8px] md:border-l-[12px] ${a.type === 'BREAKDOWN' ? 'border-l-red-500' : 'border-l-yellow-400'}`}
                                     >
                                         <div className={`w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center shrink-0 ${a.type === 'BREAKDOWN' ? 'bg-red-50 text-red-500 animate-pulse' : 'bg-yellow-50 text-yellow-600'}`}>
                                             <Icon name={a.type === 'FUEL' ? 'fuel' : 'alert'} size={24}/>
@@ -932,7 +963,7 @@ const App = () => {
                                                         <button 
                                                             key={s} 
                                                             onClick={() => handleUpdateWorkflow(a.companyId, a.id, s)} 
-                                                            className={`px-3 py-2 rounded-lg text-[9px] md:text-[10px] font-black uppercase w-full transition-all ${a.workflowStatus === s ? 'bg-red-600 text-white shadow-md' : 'bg-white text-slate-500 border'}`}
+                                                            className={`px-3 py-2 rounded-lg text-[9px] md:text-[10px] font-black uppercase w-full transition-all ${a.workflowStatus === s ? 'bg-red-600 text-white shadow-md scale-105' : 'bg-white text-slate-500 border'}`}
                                                         >
                                                             {s.slice(0,4)}
                                                         </button>
@@ -960,7 +991,7 @@ const App = () => {
                     {/* VISTA: DIRECTORIO DE EMPRESAS */}
                     {activeTab === 'companies' && !activeCompany && (
                         <div className="max-w-6xl mx-auto animate-fade-in">
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-8">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                                 <h2 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter">Directorio</h2>
                                 {role === 'admin' && (
                                     <button 
@@ -976,54 +1007,50 @@ const App = () => {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
                                 {companies.map(emp => (
-                                    <div key={emp.id} className="glass-card p-5 md:p-6 relative group">
-                                        <div className="flex justify-between items-start mb-6 md:mb-8">
-                                            <div className="w-12 h-12 md:w-14 md:h-14 bg-slate-900 rounded-xl md:rounded-2xl flex items-center justify-center text-yellow-400 shadow-xl">
-                                                <Icon name="company" size={24}/>
+                                    <div key={emp.id} className="glass-card p-5 relative group">
+                                        {role === 'admin' && (
+                                            <div className="absolute top-3 right-3 flex gap-2">
+                                                <button 
+                                                    onClick={() => { 
+                                                        setSelectedCompanyId(emp.id); 
+                                                        setForm({
+                                                            nombre: emp.nombre, 
+                                                            cuit: emp.cuit, 
+                                                            responsable: emp.responsable, 
+                                                            tankCapacity: emp.tankCapacity
+                                                        }); 
+                                                        setModalType('edit_company'); 
+                                                    }} 
+                                                    className="p-2 bg-slate-100 hover:bg-yellow-400 rounded-lg transition-colors"
+                                                >
+                                                    <Icon name="settings" size={14}/>
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDeleteCompany(emp.id)} 
+                                                    className="p-2 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-colors"
+                                                >
+                                                    <Icon name="x" size={14}/>
+                                                </button>
+                                            </div>
+                                        )}
+                                        <div className="flex justify-between items-start mb-6">
+                                            <div className="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center text-yellow-400">
+                                                <Icon name="company" size={20}/>
                                             </div>
                                             <FuelTankCapsule capacity={emp.tankCapacity} current={emp.currentFuel} />
                                         </div>
-                                        <h3 className="text-xl md:text-2xl font-black uppercase italic truncate mb-1 pr-12 md:pr-16">{emp.nombre}</h3>
-                                        <p className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest mb-6 md:mb-8">CUIT: {emp.cuit}</p>
+                                        <h3 className="text-xl font-black uppercase italic truncate mb-1 pr-12">{emp.nombre}</h3>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">CUIT: {emp.cuit}</p>
                                         
-                                        <div className="flex gap-2 w-full mt-auto">
-                                            <button 
-                                                onClick={() => { 
-                                                    setSelectedCompanyId(emp.id); 
-                                                    setIsolatedVehicleId(null); 
-                                                }} 
-                                                className="btn-premium flex-1 px-4 py-3 rounded-xl text-sm md:text-base font-black uppercase shadow-md"
-                                            >
-                                                ABRIR FLOTA
-                                            </button>
-                                            
-                                            {/* BOTONES DE ADMIN (Lado a lado, integrados al layout) */}
-                                            {role === 'admin' && (
-                                                <>
-                                                    <button 
-                                                        onClick={() => { 
-                                                            setSelectedCompanyId(emp.id); 
-                                                            setForm({
-                                                                nombre: emp.nombre, 
-                                                                cuit: emp.cuit, 
-                                                                responsable: emp.responsable, 
-                                                                tankCapacity: emp.tankCapacity
-                                                            }); 
-                                                            setModalType('edit_company'); 
-                                                        }} 
-                                                        className="px-4 py-3 bg-slate-100 hover:bg-yellow-400 rounded-xl transition-colors flex items-center justify-center shadow-sm"
-                                                    >
-                                                        <Icon name="settings" size={16}/>
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => handleDeleteCompany(emp.id)} 
-                                                        className="px-4 py-3 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-colors flex items-center justify-center shadow-sm"
-                                                    >
-                                                        <Icon name="x" size={16}/>
-                                                    </button>
-                                                </>
-                                            )}
-                                        </div>
+                                        <button 
+                                            onClick={() => { 
+                                                setSelectedCompanyId(emp.id); 
+                                                setIsolatedVehicleId(null); 
+                                            }} 
+                                            className="btn-premium px-4 py-3 w-full rounded-xl text-sm font-black uppercase shadow-md"
+                                        >
+                                            ABRIR FLOTA
+                                        </button>
                                     </div>
                                 ))}
                             </div>
@@ -1038,18 +1065,18 @@ const App = () => {
                                     setSelectedCompanyId(null); 
                                     setIsolatedVehicleId(null); 
                                 }} 
-                                className="flex items-center gap-2 md:gap-3 text-xs md:text-sm font-black uppercase mb-6 md:mb-8 text-slate-400 hover:text-slate-900 transition-colors"
+                                className="flex items-center gap-2 text-xs font-black uppercase mb-6 text-slate-400 hover:text-slate-900 transition-colors"
                             >
-                                <Icon name="chevronLeft" size={16}/> VOLVER AL DIRECTORIO
+                                <Icon name="chevronLeft" size={16}/> VOLVER
                             </button>
                             
-                            <div className="glass-card p-6 md:p-8 bg-slate-900 text-white mb-6 md:mb-8 relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-48 h-48 md:w-64 md:h-64 bg-yellow-400/10 blur-[80px] md:blur-[100px] pointer-events-none" />
-                                <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter mb-3 md:mb-4 leading-none">
+                            <div className="glass-card p-6 md:p-8 bg-slate-900 text-white mb-6 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-48 h-48 bg-yellow-400/10 blur-[80px] pointer-events-none" />
+                                <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter mb-3 leading-none">
                                     {activeCompany.nombre}
                                 </h2>
-                                <div className="flex flex-wrap gap-3 md:gap-4">
-                                    <div className="px-3 py-1.5 md:px-4 md:py-2 bg-white/10 border border-white/20 rounded-lg md:rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest">
+                                <div className="flex flex-wrap gap-3">
+                                    <div className="px-3 py-1.5 bg-white/10 border border-white/20 rounded-lg text-[9px] font-black uppercase tracking-widest">
                                         {activeCompany.cuit}
                                     </div>
                                     {role === 'admin' && !isolatedVehicleId && (
@@ -1060,7 +1087,7 @@ const App = () => {
                                                 }); 
                                                 setModalType('vehicle'); 
                                             }} 
-                                            className="btn-accent px-4 py-2 rounded-lg text-[10px] md:text-xs font-black shadow-lg"
+                                            className="btn-accent px-4 py-2 rounded-lg text-[10px] font-black shadow-lg"
                                         >
                                             + VINCULAR EQUIPO
                                         </button>
@@ -1072,108 +1099,120 @@ const App = () => {
                             {isolatedVehicleId && (
                                 <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-yellow-50 p-4 rounded-2xl border border-yellow-200 gap-4">
                                     <span className="text-yellow-800 font-black text-xs uppercase flex items-center gap-2">
-                                        <Icon name="qr" size={16}/> Equipo Filtrado por código QR
+                                        <Icon name="qr" size={16}/> Equipo Filtrado por QR
                                     </span>
                                     <button 
                                         onClick={() => setIsolatedVehicleId(null)} 
                                         className="text-[10px] font-black uppercase text-slate-600 bg-white px-4 py-2 rounded-lg border shadow-sm w-full sm:w-auto"
                                     >
-                                        VER TODA LA FLOTA COMPLETA
+                                        VER TODA LA FLOTA
                                     </button>
                                 </div>
                             )}
 
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                                 {displayedVehicles.map(v => {
                                     const ciclo = (v.horometroTotal || 0) - (v.ultimoServiceHoras || 0);
                                     const perc = Math.max(0, 100 - (ciclo / (v.serviceInterval || 250) * 100));
                                     
                                     return (
-                                        <div key={v.id} className="glass-card p-5 md:p-6 border-l-[8px] md:border-l-[12px] border-l-yellow-400 relative group flex flex-col">
+                                        <div key={v.id} className="glass-card p-5 md:p-6 border-l-[8px] md:border-l-[12px] border-l-yellow-400 relative group">
                                             
-                                            <div className="flex flex-col sm:flex-row justify-between gap-5 md:gap-8 flex-1">
-                                                <div className="flex-1 space-y-4 md:space-y-6">
+                                            {role === 'admin' && (
+                                                <div className="absolute top-3 right-3 flex gap-2">
+                                                    <button 
+                                                        onClick={() => { 
+                                                            setActiveVehicleId(v.id); 
+                                                            setForm({
+                                                                nombre: v.nombre, marca: v.marca, modelo: v.modelo, serie: v.serie, patente: v.patente, serviceInterval: v.serviceInterval
+                                                            }); 
+                                                            setModalType('edit_vehicle'); 
+                                                        }} 
+                                                        className="p-2 bg-slate-50 hover:bg-yellow-400 rounded-lg transition-colors"
+                                                    >
+                                                        <Icon name="settings" size={12}/>
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDeleteVehicle(v.id)} 
+                                                        className="p-2 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-colors"
+                                                    >
+                                                        <Icon name="x" size={12}/>
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            <div className="flex flex-col sm:flex-row justify-between gap-5">
+                                                <div className="flex-1 space-y-4 md:space-y-5">
                                                     <div className="flex items-center gap-4">
-                                                        <div className="w-12 h-12 md:w-16 md:h-16 bg-slate-50 rounded-xl md:rounded-[1.5rem] flex items-center justify-center shadow-inner shrink-0">
+                                                        <div className="w-12 h-12 md:w-16 md:h-16 bg-slate-50 rounded-xl flex items-center justify-center shadow-inner shrink-0">
                                                             <Icon name="truck" size={24} className="text-slate-800"/>
                                                         </div>
                                                         <div className="overflow-hidden w-full">
-                                                            <h4 className="font-black uppercase text-lg md:text-xl italic tracking-tight truncate pr-4">
+                                                            <h4 className="font-black uppercase text-lg md:text-xl italic tracking-tight truncate pr-16">
                                                                 {v.nombre}
                                                             </h4>
-                                                            <p className="font-black text-slate-900 text-base md:text-xl mono">
-                                                                {(v.horometroTotal || 0).toLocaleString()} <span className="text-[10px] md:text-xs text-slate-400 uppercase">HS</span>
+                                                            <p className="font-black text-slate-900 text-base md:text-lg mono">
+                                                                {(v.horometroTotal || 0).toLocaleString()} <span className="text-[10px] text-slate-400 uppercase">HS</span>
                                                             </p>
                                                         </div>
                                                     </div>
-                                                    <div className="space-y-1.5 md:space-y-2">
+                                                    <div className="space-y-1.5">
                                                         <div className="flex justify-between items-end px-1">
                                                             <span className="text-[9px] md:text-[10px] font-black uppercase text-slate-400">Ciclo ({v.serviceInterval}h)</span>
-                                                            <span className={`text-xs md:text-sm font-black mono ${perc < 20 ? 'text-red-500' : 'text-slate-900'}`}>{perc.toFixed(0)}%</span>
+                                                            <span className={`text-xs font-black mono ${perc < 20 ? 'text-red-500' : 'text-slate-900'}`}>{perc.toFixed(0)}%</span>
                                                         </div>
-                                                        <div className="h-2 md:h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                                                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                                                             <div className={`h-full transition-all duration-1000 ${perc < 20 ? 'bg-red-500' : 'bg-slate-900'}`} style={{width: `${perc}%`}} />
                                                         </div>
                                                     </div>
                                                 </div>
                                                 
-                                                {/* BOTONERA DE ACCIONES (Mobile y PC integrados) */}
-                                                <div className="grid grid-cols-2 sm:grid-cols-1 gap-2 md:gap-3 shrink-0 sm:w-40">
-                                                    
-                                                    {/* BOTONES DE ADMIN DENTRO DEL GRID DE ACCIONES */}
-                                                    {role === 'admin' && (
-                                                        <div className="flex gap-2 col-span-2 sm:col-span-1">
-                                                            <button 
-                                                                onClick={() => { 
-                                                                    setActiveVehicleId(v.id); 
-                                                                    setForm({
-                                                                        nombre: v.nombre, marca: v.marca, modelo: v.modelo, serie: v.serie, patente: v.patente, serviceInterval: v.serviceInterval
-                                                                    }); 
-                                                                    setModalType('edit_vehicle'); 
-                                                                }} 
-                                                                className="flex-1 px-3 py-2 bg-slate-100 hover:bg-yellow-400 rounded-xl transition-colors flex items-center justify-center shadow-sm"
-                                                            >
-                                                                <Icon name="settings" size={14}/>
-                                                            </button>
-                                                            <button 
-                                                                onClick={() => handleDeleteVehicle(v.id)} 
-                                                                className="flex-1 px-3 py-2 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-colors flex items-center justify-center shadow-sm"
-                                                            >
-                                                                <Icon name="x" size={14}/>
-                                                            </button>
-                                                        </div>
-                                                    )}
-
+                                                {/* BOTONERA DE ACCIONES COMPLETA */}
+                                                <div className="grid grid-cols-2 sm:grid-cols-1 gap-2 shrink-0 sm:w-36">
                                                     <button 
                                                         onClick={() => { setActiveVehicleId(v.id); setModalType('log'); }} 
-                                                        className="btn-premium px-3 py-2 rounded-xl text-[10px] md:text-xs font-black w-full"
+                                                        className="btn-premium px-3 py-2 rounded-xl text-[10px] font-black w-full shadow-sm"
                                                     >
                                                         CARGAR
                                                     </button>
                                                     <button 
                                                         onClick={() => { setActiveVehicleId(v.id); setModalType('service'); }} 
-                                                        className="btn-accent px-3 py-2 rounded-xl text-[10px] md:text-xs font-black w-full"
+                                                        className="btn-accent px-3 py-2 rounded-xl text-[10px] font-black w-full shadow-sm"
                                                     >
                                                         SERVICE
                                                     </button>
+                                                    
+                                                    {/* BOTON HISTORIAL RESTAURADO */}
+                                                    <button 
+                                                        onClick={() => { 
+                                                            setActiveVehicleId(v.id); 
+                                                            setForm({...form, horas: v.horometroTotal, fecha: new Date().toISOString().split('T')[0]}); 
+                                                            setModalType('historical'); 
+                                                        }} 
+                                                        className="btn-premium bg-slate-200 text-slate-800 hover:bg-slate-300 px-3 py-2 rounded-xl text-[10px] font-black w-full shadow-sm"
+                                                    >
+                                                        HISTORIAL
+                                                    </button>
+
                                                     <button 
                                                         onClick={() => handleToggleStatus(v.id, v.operativo)} 
-                                                        className={`px-3 py-2 rounded-xl font-black text-[9px] md:text-[10px] uppercase shadow-sm transition-all w-full col-span-2 sm:col-span-1 ${v.operativo ? 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-600 hover:text-white' : 'bg-emerald-500 text-white'}`}
+                                                        className={`px-3 py-2 rounded-xl font-black text-[9px] uppercase shadow-sm transition-all w-full col-span-2 sm:col-span-1 ${v.operativo ? 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-600 hover:text-white' : 'bg-emerald-500 text-white'}`}
                                                     >
-                                                        {v.operativo ? 'REPORTAR ROTURA' : 'REVIVIR EQUIPO'}
+                                                        {v.operativo ? 'REPORTAR ROTO' : 'REVIVIR'}
                                                     </button>
+                                                    
                                                     <div className="flex gap-2 col-span-2 sm:col-span-1">
                                                         <button 
                                                             onClick={() => downloadPDF(activeCompany, v)} 
                                                             className="flex-1 p-2 bg-slate-50 hover:bg-slate-900 hover:text-white rounded-xl transition-all flex items-center justify-center border shadow-sm"
                                                         >
-                                                            <Icon name="download" size={16}/>
+                                                            <Icon name="download" size={14}/>
                                                         </button>
                                                         <button 
                                                             onClick={() => { setActiveVehicleId(v.id); setModalType('qr'); setTimeout(() => generateQR(v.id), 100); }} 
                                                             className="flex-1 p-2 bg-slate-50 hover:bg-yellow-400 rounded-xl transition-all flex items-center justify-center border shadow-sm"
                                                         >
-                                                            <Icon name="qr" size={16}/>
+                                                            <Icon name="qr" size={14}/>
                                                         </button>
                                                     </div>
                                                 </div>
@@ -1181,15 +1220,15 @@ const App = () => {
                                             
                                             <button 
                                                 onClick={() => toggleHistory(v.id)} 
-                                                className="flex items-center gap-2 text-[9px] md:text-[10px] font-black uppercase text-slate-400 hover:text-slate-900 transition-colors border-t border-slate-100 mt-5 pt-3 w-full"
+                                                className="flex items-center gap-2 text-[9px] font-black uppercase text-slate-400 hover:text-slate-900 transition-colors border-t border-slate-100 mt-5 pt-3 w-full"
                                             >
-                                                <Icon name="history" size={14}/> AUDITORÍA INTERNA
-                                                <Icon name="chevronDown" size={14} className={`ml-auto transition-transform ${expandedVehicles.has(v.id) ? 'rotate-180' : ''}`}/>
+                                                <Icon name="history" size={12}/> AUDITORÍA 
+                                                <Icon name="chevronDown" size={12} className={`ml-auto transition-transform ${expandedVehicles.has(v.id) ? 'rotate-180' : ''}`}/>
                                             </button>
                                             
                                             {expandedVehicles.has(v.id) && (
-                                                <div className="mt-4 overflow-x-auto rounded-xl border border-slate-100 bg-slate-50 p-2">
-                                                    <table className="w-full history-table min-w-[400px]">
+                                                <div className="mt-3 overflow-x-auto rounded-xl border border-slate-100 bg-slate-50/50 p-2 animate-fade-in">
+                                                    <table className="w-full history-table min-w-[300px]">
                                                         <thead>
                                                             <tr>
                                                                 <th>Fecha</th>
@@ -1222,8 +1261,8 @@ const App = () => {
 
                     {/* VISTA: CONFIGURACIÓN Y ROLES (SOLO ADMIN) */}
                     {activeTab === 'config' && role === 'admin' && (
-                        <div className="max-w-4xl mx-auto space-y-8 md:space-y-10 animate-fade-in">
-                            <div className="space-y-4 md:space-y-6">
+                        <div className="max-w-4xl mx-auto space-y-10 animate-fade-in">
+                            <div className="space-y-6">
                                 <h2 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter">Configuración</h2>
                                 <div className="glass-card p-6 md:p-8 space-y-6 bg-white shadow-xl">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
@@ -1248,33 +1287,47 @@ const App = () => {
                                 </div>
                             </div>
                             
-                            <div className="space-y-4 md:space-y-6">
+                            <div className="space-y-4">
                                 <div className="flex justify-between items-end border-b border-slate-200 pb-4">
                                     <h2 className="text-2xl font-black uppercase italic tracking-tighter">Usuarios</h2>
-                                    <button onClick={() => setModalType('register_user')} className="btn-accent px-5 py-2.5 rounded-xl text-[10px] font-black shadow-md">+ NUEVO ACCESO</button>
+                                    <button onClick={() => { 
+                                        setNewUser({ email: '', password: '', nombre: '', role: 'operario' }); 
+                                        setModalType('register_user'); 
+                                    }} className="btn-accent px-5 py-2.5 rounded-xl text-[10px] font-black shadow-md">
+                                        + NUEVO
+                                    </button>
                                 </div>
                                 <div className="glass-card overflow-x-auto shadow-xl">
                                     <table className="w-full history-table min-w-[400px]">
                                         <thead>
                                             <tr>
-                                                <th>Email del Usuario</th>
-                                                <th>Nivel de Acceso en Sistema</th>
+                                                <th>Nombre</th>
+                                                <th>Email</th>
+                                                <th>Nivel de Acceso</th>
+                                                <th>Gestión</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {usersList.map(u => (
                                                 <tr key={u.uid} className="hover:bg-slate-50 transition-colors">
-                                                    <td className="font-black text-slate-700 italic text-xs">{u.email}</td>
+                                                    <td className="font-bold text-slate-900 text-xs truncate max-w-[150px]">{u.nombre || '-'}</td>
+                                                    <td className="font-black text-slate-500 italic text-xs truncate">{u.email}</td>
                                                     <td>
-                                                        <select 
-                                                            value={u.role} 
-                                                            onChange={(e) => handleUpdateUserRole(u.uid, e.target.value)} 
-                                                            className={`text-[10px] font-black uppercase px-3 py-2 rounded-lg border outline-none ${u.role === 'admin' ? 'border-yellow-400 bg-yellow-50 text-yellow-700' : u.role === 'suspendido' ? 'border-red-500 bg-red-50 text-red-600' : 'bg-white text-slate-600 border-slate-200'}`}
+                                                        <span className={`text-[9px] font-black uppercase px-2 py-1 rounded border ${u.role === 'admin' ? 'border-yellow-400 bg-yellow-50 text-yellow-700' : u.role === 'suspendido' ? 'border-red-500 bg-red-50 text-red-600' : 'bg-white text-slate-600 border-slate-200'}`}>
+                                                            {u.role}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <button 
+                                                            onClick={() => {
+                                                                setEditingUserId(u.uid);
+                                                                setNewUser({ email: u.email, nombre: u.nombre || '', role: u.role, password: '' });
+                                                                setModalType('edit_user');
+                                                            }}
+                                                            className="text-[9px] font-black uppercase bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg transition-colors"
                                                         >
-                                                            <option value="operario">Operario</option>
-                                                            <option value="admin">Admin</option>
-                                                            <option value="suspendido">Suspender Acceso</option>
-                                                        </select>
+                                                            EDITAR
+                                                        </button>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -1285,15 +1338,15 @@ const App = () => {
                         </div>
                     )}
 
-                    {/* VISTA: PROYECCIONES DE MANTENIMIENTO */}
+                    {/* VISTA: PROYECCIONES */}
                     {activeTab === 'calendar' && (
-                        <div className="max-w-4xl mx-auto space-y-8 md:space-y-10 animate-fade-in">
+                        <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
                             <h2 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter">Proyecciones</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 {projectionsData.map((p, i) => (
                                     <div key={i} className="glass-card p-6 flex flex-col gap-5 shadow-lg border-t-[6px] border-t-blue-500">
                                         <div className="flex items-center gap-4 overflow-hidden">
-                                            <div className="w-12 h-12 md:w-14 md:h-14 bg-blue-50 rounded-xl text-blue-600 flex items-center justify-center shrink-0">
+                                            <div className="w-12 h-12 bg-blue-50 rounded-xl text-blue-600 flex items-center justify-center shrink-0">
                                                 <Icon name="truck" size={20}/>
                                             </div>
                                             <div className="overflow-hidden w-full">
@@ -1323,7 +1376,7 @@ const App = () => {
                 </div>
             </main>
 
-            {/* --- MODALES DINÁMICOS FORMULARIOS --- */}
+            {/* --- MODALES DINÁMICOS --- */}
             {modalType && (
                 <ModalComp 
                     title={modalType.replace(/_/g,' ')} 
@@ -1336,14 +1389,28 @@ const App = () => {
                         
                         {modalType === 'register_user' && (
                             <form onSubmit={handleRegisterUser} className="space-y-4">
+                                <input type="text" required className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold" placeholder="NOMBRE Y APELLIDO" onChange={e => setNewUser({...newUser, nombre: e.target.value})} />
                                 <input type="email" required className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold" placeholder="EMAIL DE ACCESO" onChange={e => setNewUser({...newUser, email: e.target.value})} />
                                 <input type="text" required className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold" placeholder="PASSWORD TEMPORAL" onChange={e => setNewUser({...newUser, password: e.target.value})} />
                                 <select className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold bg-white" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}>
-                                    <option value="operario">Operario (Limitado)</option>
+                                    <option value="operario">Operario (Solo Carga)</option>
                                     <option value="admin">Administrador (Total)</option>
                                 </select>
                                 <button type="submit" className="btn-accent w-full px-5 py-3 rounded-xl text-sm font-black uppercase mt-2 shadow-md">CREAR ACCESO</button>
                             </form>
+                        )}
+
+                        {modalType === 'edit_user' && (
+                            <div className="space-y-4">
+                                <p className="text-xs font-black uppercase text-slate-400">Editando a: {newUser.email}</p>
+                                <input type="text" required className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold" placeholder="NOMBRE Y APELLIDO" value={newUser.nombre} onChange={e => setNewUser({...newUser, nombre: e.target.value})} />
+                                <select className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold bg-white" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}>
+                                    <option value="operario">Operario (Solo Carga)</option>
+                                    <option value="admin">Administrador (Total)</option>
+                                    <option value="suspendido">Suspender Acceso</option>
+                                </select>
+                                <button onClick={handleUpdateUserSubmit} className="btn-accent w-full px-5 py-3 rounded-xl text-sm font-black uppercase mt-2 shadow-md">GUARDAR CAMBIOS</button>
+                            </div>
                         )}
 
                         {modalType === 'force_password_change' && (
@@ -1405,7 +1472,7 @@ const App = () => {
                                     <input className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" value={form.patente} onChange={e => setForm({...form, patente: e.target.value})} />
                                     <input className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" type="number" value={form.serviceInterval} onChange={e => setForm({...form, serviceInterval: e.target.value})} />
                                 </div>
-                                <button onClick={handleEditVehicleSubmit} className="btn-premium w-full px-5 py-4 rounded-xl text-sm font-black mt-2 uppercase shadow-md">Actualizar Datos</button>
+                                <button onClick={handleEditVehicleSubmit} className="btn-premium w-full px-5 py-4 rounded-xl text-sm font-black mt-2 uppercase shadow-md">Actualizar</button>
                             </div>
                         )}
 
@@ -1413,11 +1480,11 @@ const App = () => {
                             <div className="space-y-6">
                                 <div className="grid grid-cols-2 gap-4 text-center">
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase">Horómetro Final</label>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Horómetro Final</label>
                                         <input type="number" className="input-premium px-4 py-4 rounded-xl w-full text-2xl md:text-3xl text-center font-black" onChange={e => setForm({...form, horas: e.target.value})} />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase">Carga Diesel (L)</label>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Carga Diesel (L)</label>
                                         <input type="number" className="input-premium px-4 py-4 rounded-xl w-full text-2xl md:text-3xl text-center font-black" onChange={e => setForm({...form, litros: e.target.value})} />
                                     </div>
                                 </div>
@@ -1428,71 +1495,70 @@ const App = () => {
 
                         {modalType === 'service' && (
                             <div className="space-y-6">
-                                <div className="bg-slate-900 p-6 rounded-3xl text-center text-white border-t-8 border-t-yellow-400 shadow-xl">
-                                    <p className="text-[9px] font-black text-yellow-400 uppercase mb-2 italic">Certificación Service</p>
-                                    <p className="text-4xl font-black italic">HS {activeVehicle?.horometroTotal?.toLocaleString()}</p>
+                                <div className="bg-slate-900 p-6 md:p-8 rounded-3xl text-center text-white border-t-8 border-t-yellow-400 shadow-xl">
+                                    <p className="text-[9px] font-black text-yellow-400 uppercase tracking-widest mb-2 md:mb-3 italic">Certificación Service</p>
+                                    <p className="text-4xl md:text-5xl font-black italic tracking-tighter">HS {activeVehicle?.horometroTotal?.toLocaleString()}</p>
                                 </div>
                                 <div className="space-y-4">
-                                    <label className="text-[10px] font-black uppercase text-slate-800 ml-1">Checklist de Insumos</label>
+                                    <label className="text-[10px] md:text-xs font-black uppercase text-slate-800 ml-2">Checklist de Insumos</label>
                                     <div className="flex flex-wrap gap-2">
                                         {['Aceite 15W40', 'Filtro Aceite', 'Filtro Aire', 'Filtro Comb.', 'Hidráulico', 'Refrigerante'].map(item => (
                                             <button 
                                                 key={item} 
                                                 onClick={() => setForm(p => ({ ...p, insumos: p.insumos.includes(item) ? p.insumos.filter(i => i !== item) : [...p.insumos, item] }))} 
-                                                className={`px-3 py-2 rounded-xl font-black text-[9px] uppercase border transition-colors ${form.insumos.includes(item) ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-400 border-slate-200'}`}
+                                                className={`px-4 py-2 md:px-5 md:py-3 rounded-xl font-black text-[9px] md:text-[10px] uppercase border transition-colors ${form.insumos.includes(item) ? 'bg-slate-900 text-white border-slate-900 shadow-md' : 'bg-white text-slate-400 border-slate-200'}`}
                                             >
                                                 {item}
                                             </button>
                                         ))}
                                     </div>
                                     <div className="flex gap-2">
-                                        <input className="flex-1 input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" placeholder="Otro..." value={form.insumoManual} onChange={e => setForm({...form, insumoManual: e.target.value})} />
-                                        <button onClick={() => { if(form.insumoManual) setForm(p => ({ ...p, insumos: [...p.insumos, form.insumoManual.toUpperCase()], insumoManual: '' })); }} className="px-5 bg-slate-900 text-white rounded-xl font-black text-lg transition-all">+</button>
+                                        <input className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" placeholder="Otro repuesto..." value={form.insumoManual} onChange={e => setForm({...form, insumoManual: e.target.value})} />
+                                        <button onClick={() => { if(form.insumoManual) setForm(p => ({ ...p, insumos: [...p.insumos, form.insumoManual.toUpperCase()], insumoManual: '' })); }} className="px-6 bg-slate-900 text-white rounded-xl font-black text-lg transition-all active:scale-95">+</button>
                                     </div>
                                 </div>
-                                <textarea className="input-premium px-4 py-3 rounded-xl w-full h-24 text-xs font-bold resize-none" placeholder="RECOMENDACIONES TÉCNICAS..." onChange={e => setForm({...form, nota: e.target.value.toUpperCase()})} />
-                                <button onClick={handleServiceReset} className="btn-accent w-full px-5 py-4 rounded-xl text-sm font-black uppercase shadow-lg">Cerrar Ciclo</button>
+                                <textarea className="input-premium px-4 py-3 rounded-xl w-full h-24 md:h-32 text-xs md:text-sm font-bold resize-none" placeholder="RECOMENDACIONES TÉCNICAS..." onChange={e => setForm({...form, nota: e.target.value.toUpperCase()})} />
+                                <button onClick={handleServiceReset} className="btn-accent w-full px-5 py-4 rounded-xl text-sm md:text-base font-black uppercase shadow-lg">Cerrar Ciclo</button>
                             </div>
                         )}
 
                         {modalType === 'downtime' && (
                             <div className="space-y-6 text-center px-4">
-                                <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto border-2 border-red-500 animate-pulse shadow-lg"><Icon name="alert" size={32} className="text-red-600"/></div>
+                                <div className="w-20 h-20 bg-red-100 rounded-[2rem] flex items-center justify-center mx-auto border-4 border-red-500 animate-pulse shadow-xl"><Icon name="alert" size={40} className="text-red-600"/></div>
                                 <div>
-                                    <h3 className="text-2xl font-black uppercase italic text-red-600">Reportar Rotura</h3>
-                                    <p className="text-[9px] font-black text-slate-400 uppercase mt-2 tracking-widest">Notificación inmediata al panel.</p>
+                                    <h3 className="text-3xl font-black uppercase italic text-red-600 tracking-tighter">Rotura</h3>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase mt-2 tracking-widest">Notificación inmediata al panel.</p>
                                 </div>
-                                <textarea className="input-premium px-5 py-4 rounded-xl w-full h-32 text-sm text-red-600 border-red-200 bg-red-50/50 font-bold resize-none" placeholder="MOTIVO DE LA PARADA..." onChange={e => setForm({...form, motivo: e.target.value.toUpperCase()})} />
-                                <button onClick={handleConfirmDowntime} className="btn-premium w-full px-5 py-4 rounded-2xl bg-red-600 text-base font-black uppercase shadow-xl border-b-4 border-b-red-800 active:translate-y-2 transition-all">EMITIR PARADA</button>
+                                <textarea className="input-premium px-5 py-4 rounded-xl w-full h-32 md:h-40 text-sm text-red-600 border-red-200 bg-red-50/50 font-bold resize-none" placeholder="MOTIVO DE LA PARADA..." onChange={e => setForm({...form, motivo: e.target.value.toUpperCase()})} />
+                                <button onClick={handleConfirmDowntime} className="btn-premium w-full px-5 py-4 rounded-2xl bg-red-600 text-base md:text-lg font-black uppercase shadow-xl border-b-4 border-b-red-800 active:translate-y-2 transition-all">EMITIR PARADA</button>
                             </div>
                         )}
 
                         {modalType === 'repair_finish' && (
                             <div className="space-y-6 text-center px-4">
-                                <div className="w-16 h-16 bg-emerald-500 rounded-[1.5rem] flex items-center justify-center mx-auto text-white shadow-xl shadow-emerald-200"><Icon name="check" size={32}/></div>
-                                <h3 className="text-2xl font-black uppercase italic text-emerald-600">Equipo Reparado</h3>
-                                <textarea className="input-premium px-5 py-4 rounded-xl w-full h-32 text-xs font-bold resize-none" placeholder="DETALLE DE REPARACIÓN..." onChange={e => setForm({...form, nota: e.target.value.toUpperCase()})} />
-                                <button onClick={handleRepairSubmit} className="btn-premium w-full px-5 py-4 rounded-2xl bg-emerald-600 text-sm font-black uppercase shadow-xl">DAR DE ALTA UNIDAD</button>
+                                <div className="w-20 h-20 bg-emerald-500 rounded-[1.5rem] flex items-center justify-center mx-auto text-white shadow-xl shadow-emerald-200"><Icon name="check" size={40}/></div>
+                                <h3 className="text-3xl font-black uppercase italic text-emerald-600 tracking-tighter">Equipo Reparado</h3>
+                                <textarea className="input-premium px-5 py-4 rounded-xl w-full h-32 md:h-40 text-sm font-bold resize-none" placeholder="DETALLE DE REPARACIÓN..." onChange={e => setForm({...form, nota: e.target.value.toUpperCase()})} />
+                                <button onClick={handleRepairSubmit} className="btn-premium w-full px-5 py-4 rounded-2xl bg-emerald-600 text-base md:text-lg font-black uppercase shadow-xl">DAR DE ALTA UNIDAD</button>
                             </div>
                         )}
 
                         {modalType === 'historical' && (
                             <div className="space-y-4">
-                                <div className="p-3 bg-slate-50 border rounded-lg text-[9px] font-bold text-slate-400 leading-relaxed">
-                                    Sincroniza historial. Útil para primera carga.
+                                <div className="p-4 bg-slate-50 border rounded-xl text-[10px] md:text-xs font-bold text-slate-400 leading-relaxed">
+                                    Carga de registros históricos. Sincroniza el horómetro total del equipo.
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <input className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" type="date" value={form.fecha} onChange={e => setForm({...form, fecha: e.target.value})} />
                                     <input className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" type="number" placeholder="HS Totales" value={form.horas} onChange={e => setForm({...form, horas: e.target.value})} />
                                 </div>
-                                <button onClick={handleHistoricalData} className="btn-premium w-full px-5 py-3 rounded-xl text-xs font-black uppercase mt-2 shadow-md">Sincronizar</button>
+                                <button onClick={handleHistoricalData} className="btn-premium w-full px-5 py-3 rounded-xl text-xs font-black uppercase mt-2 shadow-md">Sincronizar Historial</button>
                             </div>
                         )}
 
-                        {/* RENDERIZADO QR: GENERADOR MÓVIL Y DE PC */}
                         {modalType === 'qr' && (
                             <div className="space-y-6 text-center flex flex-col items-center pt-4">
-                                <p className="text-4xl font-black italic uppercase tracking-tighter">BND</p>
+                                <p className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter">BND</p>
                                 <div className="p-6 bg-white rounded-3xl shadow-xl border-4 border-slate-900" id={`qr-container-${activeVehicleId}`}></div>
                                 <p className="text-lg font-black text-slate-800 uppercase tracking-widest">{activeVehicle?.nombre}</p>
                                 <button onClick={handlePrintQR} className="btn-premium w-full px-5 py-4 rounded-xl text-sm font-black uppercase shadow-xl mt-4">IMPRIMIR ETIQUETA</button>
@@ -1500,24 +1566,24 @@ const App = () => {
                         )}
 
                         {modalType === 'details' && (
-                            <div className="space-y-6 w-full max-w-2xl mx-auto">
-                                <div className="bg-slate-900 p-6 md:p-10 rounded-[2rem] flex flex-col sm:flex-row justify-between items-center gap-6 border-l-[10px] border-l-yellow-400 shadow-2xl">
+                            <div className="space-y-8 w-full max-w-2xl mx-auto">
+                                <div className="bg-slate-900 p-8 md:p-10 rounded-[2rem] flex flex-col sm:flex-row justify-between items-center gap-6 border-l-[12px] border-l-yellow-400 shadow-2xl">
                                     <div className="text-center sm:text-left w-full">
-                                        <p className="text-[9px] md:text-[10px] font-black text-yellow-400 uppercase mb-2 tracking-widest italic">Stock Depósito</p>
-                                        <p className="text-4xl md:text-5xl font-black text-white mono">{(activeCompany.currentFuel || 0).toLocaleString()} <span className="text-sm opacity-30">L</span></p>
+                                        <p className="text-[10px] font-black text-yellow-400 uppercase mb-2 tracking-widest italic">Stock Depósito Central</p>
+                                        <p className="text-4xl md:text-5xl font-black text-white mono">{(activeCompany.currentFuel || 0).toLocaleString()} <span className="text-base opacity-30">L</span></p>
                                     </div>
                                     {role === 'admin' && (
                                         <button 
                                             onClick={() => { if(confirm("¿Cargar depósito al 100%?")) refillTank(); }} 
-                                            className="btn-accent px-6 py-4 rounded-xl text-xs font-black w-full sm:w-auto shadow-lg shadow-yellow-400/20"
+                                            className="btn-accent px-8 py-4 rounded-xl text-xs font-black w-full sm:w-auto shadow-lg shadow-yellow-400/20"
                                         >
                                             CARGAR
                                         </button>
                                     )}
                                 </div>
-                                <div className="space-y-2">
-                                    <p className="text-[10px] font-black uppercase italic text-slate-400 ml-2">Consumo Proyectado</p>
-                                    <div className="glass-card p-4 bg-white w-full">
+                                <div className="space-y-3">
+                                    <p className="text-[10px] md:text-xs font-black uppercase italic text-slate-400 ml-2 tracking-widest">Consumo Proyectado (Mensual)</p>
+                                    <div className="glass-card p-4 md:p-6 bg-white w-full">
                                         <canvas ref={chartRef}></canvas>
                                     </div>
                                 </div>
@@ -1527,19 +1593,19 @@ const App = () => {
                 </ModalComp>
             )}
 
-            {/* SCANNER MOBILE/PC OVERLAY */}
+            {/* SCANNER MODAL OVERLAY */}
             {scannerActive && (
-                <div className="fixed inset-0 z-[1000] bg-slate-900/98 backdrop-blur-md flex flex-col items-center justify-center p-6">
-                    <div className="w-full max-w-[300px] md:max-w-[400px] aspect-square relative mb-8">
-                        <div id="reader" className="w-full h-full rounded-3xl md:rounded-[3rem] overflow-hidden border-[8px] border-yellow-400 shadow-2xl"></div>
-                        <div className="absolute inset-0 pointer-events-none border-[30px] border-transparent after:absolute after:inset-6 after:border-2 after:border-yellow-400/50 after:animate-pulse"></div>
+                <div className="fixed inset-0 z-[1000] bg-slate-900/98 backdrop-blur-md flex flex-col items-center justify-center p-6 md:p-10">
+                    <div className="w-full max-w-[320px] md:max-w-[400px] aspect-square relative mb-10">
+                        <div id="reader" className="w-full h-full rounded-[2.5rem] md:rounded-[3rem] overflow-hidden border-[8px] md:border-[12px] border-yellow-400 shadow-2xl"></div>
+                        <div className="absolute inset-0 pointer-events-none border-[30px] md:border-[40px] border-transparent after:absolute after:inset-6 md:after:inset-8 after:border-2 after:border-yellow-400/50 after:animate-pulse"></div>
                     </div>
                     <button 
                         onClick={() => { 
                             setScannerActive(false); 
                             if(scannerRef.current) scannerRef.current.stop(); 
                         }} 
-                        className="px-10 py-4 bg-white text-slate-900 rounded-2xl font-black text-sm shadow-xl active:scale-95 transition-transform tracking-widest"
+                        className="px-12 py-5 md:px-16 md:py-6 bg-white text-slate-900 rounded-2xl md:rounded-3xl font-black text-sm md:text-lg shadow-xl active:scale-95 transition-transform tracking-widest"
                     >
                         CANCELAR
                     </button>
