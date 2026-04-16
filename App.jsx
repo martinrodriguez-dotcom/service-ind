@@ -178,7 +178,6 @@ const App = () => {
         } catch (error) { alert("Error al actualizar los datos."); }
     };
 
-    // FUNCIÓN RESTAURADA: Cambiar roles desde la tabla
     const handleUpdateUserRole = async (uid, newRole) => {
         if(window.confirm(`¿Estás seguro de cambiar los permisos a ${newRole.toUpperCase()}?`)) {
             await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "users", uid), { 
@@ -304,7 +303,25 @@ const App = () => {
     const handleDeleteVehicle = async (vId) => { if(confirm("¿Eliminar este equipo permanentemente?")) { await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: activeCompany.vehiculos.filter(v => v.id !== vId) }); setActiveVehicleId(null); } };
     const handleEditVehicleSubmit = async () => { await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: activeCompany.vehiculos.map(v => v.id === activeVehicleId ? { ...v, nombre: form.nombre, marca: form.marca, modelo: form.modelo, serie: form.serie, patente: form.patente, serviceInterval: parseFloat(form.serviceInterval) } : v) }); setModalType(null); };
     const handleAddCompany = async () => { if(!form.nombre) return; await fb.addDoc(fb.collection(db, "artifacts", APP_ID, "public", "data", "companies"), { nombre: form.nombre, cuit: form.cuit, responsable: form.responsable, tankCapacity: parseFloat(form.tankCapacity) || 1000, criticalFuelPerc: parseFloat(form.criticalFuelPerc) || 25, currentFuel: parseFloat(form.tankCapacity) || 1000, vehiculos: [] }); setModalType(null); setForm({...form, nombre: '', cuit: '', responsable: ''}); };
-    const handleAddVehicle = async () => { const h = parseFloat(form.horometro) || 0; await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { vehiculos: fb.arrayUnion({ id: Date.now().toString(), ...form, horometroTotal: h, ultimoServiceHoras: h, operativo: true, workflowStatus: 'PENDIENTE', eventos: [{ id: Date.now(), tipo: 'ALTA', fecha: new Date().toLocaleDateString(), horas: h, nota: 'Alta inicial del equipo' }] }) }); setModalType(null); };
+    
+    // CREACIÓN DE VEHÍCULO CON NUMERACIÓN AUTOMÁTICA
+    const handleAddVehicle = async () => { 
+        const h = parseFloat(form.horometro) || 0; 
+        const nuevoNumero = (activeCompany.vehiculos || []).length + 1; // Calculamos el índice secuencial
+        await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { 
+            vehiculos: fb.arrayUnion({ 
+                id: Date.now().toString(), 
+                numeroInterno: nuevoNumero, // Asignamos el número
+                ...form, 
+                horometroTotal: h, 
+                ultimoServiceHoras: h, 
+                operativo: true, 
+                workflowStatus: 'PENDIENTE', 
+                eventos: [{ id: Date.now(), tipo: 'ALTA', fecha: new Date().toLocaleDateString(), horas: h, nota: 'Alta inicial del equipo' }] 
+            }) 
+        }); 
+        setModalType(null); 
+    };
 
     // --- OPERACIONES DE CAMPO ---
     const handleDailyLog = async () => {
@@ -444,7 +461,7 @@ const App = () => {
             </main>
 
             {/* INYECCIÓN DINÁMICA DE MODALES DESDE AppModals.jsx */}
-            <AppModals 
+            <window.AppModals 
                 modalType={modalType} setModalType={setModalType} role={role} companies={companies} 
                 activeCompany={activeCompany} activeVehicle={activeVehicle} activeVehicleId={activeVehicleId} 
                 form={form} setForm={setForm} newUser={newUser} setNewUser={setNewUser} 
