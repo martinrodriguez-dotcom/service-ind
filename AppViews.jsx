@@ -106,11 +106,21 @@ const CompanyDetailView = ({
           {role === 'admin' && <button onClick={() => { setForm(prev => ({...prev, nombre:'', marca:'', modelo:'', serie:'', patente:'', serviceInterval: 250, horometro: ''})); setModalType('vehicle'); }} className="btn-accent px-5 py-3 rounded-xl text-xs font-black shadow-lg z-10 w-full md:w-auto">+ VINCULAR EQUIPO</button>}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
-          {(activeCompany.vehiculos || []).map(v => {
+          {(activeCompany.vehiculos || []).map((v, index) => {
             const perc = Math.max(0, 100 - (((v.horometroTotal || 0) - (v.ultimoServiceHoras || 0)) / (v.serviceInterval || 250) * 100));
+            // Badge visual con fallback a index si es un vehículo viejo
+            const vehNumber = v.numeroInterno || (index + 1);
+
             return (
               <div key={v.id} onClick={() => setActiveVehicleId(v.id)} className="glass-card p-5 border-l-[6px] border-l-slate-300 cursor-pointer hover:border-l-yellow-400 transition-all hover:-translate-y-1 shadow-sm hover:shadow-xl group flex flex-col">
-                <div className="flex justify-between items-start mb-4"><div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center group-hover:bg-yellow-50 transition-colors"><Icon name="truck" size={18} className="text-slate-800"/></div><div className={`px-2 py-1 rounded text-[8px] font-black uppercase tracking-widest ${v.operativo ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600 animate-pulse'}`}>{v.operativo ? 'ACTIVO' : 'ROTO'}</div></div>
+                <div className="flex justify-between items-start mb-4">
+                    <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center group-hover:bg-yellow-50 transition-colors relative">
+                        <Icon name="truck" size={18} className="text-slate-800"/>
+                        {/* INSIGNIA NUMÉRICA */}
+                        <span className="absolute -top-2 -right-2 bg-slate-900 text-yellow-400 text-[8px] font-black px-1.5 py-0.5 rounded-md shadow-sm">#{vehNumber}</span>
+                    </div>
+                    <div className={`px-2 py-1 rounded text-[8px] font-black uppercase tracking-widest ${v.operativo ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600 animate-pulse'}`}>{v.operativo ? 'ACTIVO' : 'ROTO'}</div>
+                </div>
                 <h4 className="font-black uppercase text-lg italic tracking-tight truncate">{v.nombre}</h4><p className="font-black text-slate-900 text-sm mono mb-4">{(v.horometroTotal || 0).toLocaleString()} <span className="text-[9px] text-slate-400 uppercase">HS</span></p>
                 <div className="space-y-1.5 mt-auto">
                     <div className="flex justify-between items-end px-1"><span className="text-[8px] font-black uppercase text-slate-400">Ciclo ({v.serviceInterval}h)</span><span className={`text-[10px] font-black mono ${perc < 20 ? 'text-red-500' : 'text-slate-900'}`}>{perc.toFixed(0)}%</span></div>
@@ -124,21 +134,36 @@ const CompanyDetailView = ({
     );
   }
 
-  // Si hay un vehículo seleccionado, mostramos su PANEL AISLADO
+  // Panel Aislado de un Vehículo
+  const vehNumber = activeVehicle.numeroInterno || ((activeCompany.vehiculos || []).findIndex(v => v.id === activeVehicle.id) + 1);
+
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
       <button onClick={() => { if(isolatedVehicleId) { setSelectedCompanyId(null); setIsolatedVehicleId(null); } else { setActiveVehicleId(null); } }} className="flex items-center gap-2 md:gap-3 text-xs md:text-sm font-black uppercase mb-6 md:mb-8 text-slate-400 hover:text-slate-900 transition-colors"><Icon name="chevronLeft" size={16}/> VOLVER A LA FLOTA</button>
       <div className="glass-card p-6 md:p-10 border-t-[12px] border-t-yellow-400 relative overflow-hidden shadow-2xl">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8 border-b border-slate-100 pb-8">
-          <div className="flex items-center gap-5"><div className="w-16 h-16 md:w-20 md:h-20 bg-slate-900 rounded-2xl flex items-center justify-center shadow-inner text-white"><Icon name="truck" size={32}/></div><div><h4 className="font-black uppercase text-3xl md:text-4xl italic tracking-tighter">{activeVehicle.nombre}</h4><p className="font-black text-slate-500 text-sm md:text-base uppercase tracking-widest mt-1">{activeCompany.nombre}</p></div></div>
+          <div className="flex items-center gap-5">
+              <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-900 rounded-2xl flex items-center justify-center shadow-inner text-white relative">
+                  <Icon name="truck" size={32}/>
+                  {/* INSIGNIA NUMÉRICA MODAL */}
+                  <span className="absolute -top-3 -right-3 bg-yellow-400 text-slate-900 text-xs md:text-sm font-black px-2 py-1 rounded-lg shadow-md">#{vehNumber}</span>
+              </div>
+              <div>
+                  <h4 className="font-black uppercase text-3xl md:text-4xl italic tracking-tighter">{activeVehicle.nombre}</h4>
+                  <p className="font-black text-slate-500 text-sm md:text-base uppercase tracking-widest mt-1">{activeCompany.nombre}</p>
+              </div>
+          </div>
           <div className="bg-slate-50 p-4 rounded-2xl text-center w-full md:w-auto border border-slate-100"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Horómetro</p><p className="font-black text-slate-900 text-3xl md:text-4xl mono">{(activeVehicle.horometroTotal || 0).toLocaleString()} <span className="text-xs text-slate-400 uppercase">HS</span></p></div>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
           <button onClick={() => setModalType('log')} className="btn-premium px-4 py-4 rounded-2xl text-xs font-black w-full shadow-lg">CARGAR DATOS</button>
           <button onClick={() => setModalType('service')} className="btn-accent px-4 py-4 rounded-2xl text-xs font-black w-full shadow-lg">SERVICE</button>
-          <button onClick={() => handleToggleStatus(activeVehicle.id, activeVehicle.operativo)} className={`px-4 py-4 rounded-2xl font-black text-xs uppercase shadow-lg transition-all w-full ${activeVehicle.operativo ? 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-600 hover:text-white' : 'bg-emerald-500 text-white'}`}>{activeVehicle.operativo ? 'REPORTAR ROTURA' : 'REVIVIR EQUIPO'}</button>
           
-          {/* BOTÓN HISTORIAL CORREGIDO (usa prev) */}
+          {/* BOTON EVENTO RENOMBRADO */}
+          <button onClick={() => handleToggleStatus(activeVehicle.id, activeVehicle.operativo)} className={`px-4 py-4 rounded-2xl font-black text-xs uppercase shadow-lg transition-all w-full ${activeVehicle.operativo ? 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-600 hover:text-white' : 'bg-emerald-500 text-white'}`}>
+              {activeVehicle.operativo ? 'EVENTO' : 'REVIVIR EQUIPO'}
+          </button>
+          
           <button onClick={() => { setForm(prev => ({...prev, horas: activeVehicle.horometroTotal, fecha: new Date().toISOString().split('T')[0]})); setModalType('historical'); }} className="btn-premium bg-slate-100 text-slate-700 hover:bg-slate-200 px-4 py-4 rounded-2xl text-xs font-black w-full shadow-sm">HISTORIAL</button>
         </div>
         <div className="flex flex-wrap gap-3 mb-8 bg-slate-50 p-4 rounded-2xl">
@@ -304,5 +329,5 @@ const MetricsView = ({ intelligenceData, chartGastosData, chartSeveridadData, ex
   </div>
 );
 
-// EXPORTAMOS LAS VISTAS GLOBALES PARA QUE EL App.jsx LAS CONSUMA
+// EXPORTAMOS LAS VISTAS GLOBALES
 window.AppViews = { DashboardView, CompaniesView, CompanyDetailView, ConfigView, CalendarView, MetricsView };
