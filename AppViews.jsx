@@ -1,7 +1,7 @@
 const { useState, useEffect, useRef } = React;
 const { Icon, FuelTankCapsule } = window;
 
-// --- WIDGET PARA GRÁFICOS ---
+// --- WIDGET PARA GRÁFICOS DE INTELIGENCIA ---
 const ChartWidget = ({ type, data, options }) => {
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
@@ -114,9 +114,8 @@ const CompanyDetailView = ({ role, activeCompany, activeVehicle, activeVehicleId
             return (
               <div key={v.id} onClick={() => setActiveVehicleId(v.id)} className="glass-card p-6 cursor-pointer hover:border-yellow-400 transition-all group flex flex-col h-full">
                 <div className="flex justify-between items-start mb-6">
-                    <div className="w-12 h-12 bg-slate-100 rounded-[1rem] flex items-center justify-center group-hover:bg-yellow-100 transition-colors relative shadow-inner text-slate-700">
-                        <Icon name="truck" size={20} />
-                        <span className="absolute -top-2 -right-2 bg-slate-900 text-yellow-400 text-[9px] font-black px-2 py-0.5 rounded-md shadow-md">#{vehNumber}</span>
+                    <div className="w-12 h-12 bg-slate-900 rounded-[1rem] flex items-center justify-center shadow-md">
+                        <span className="text-yellow-400 font-black text-lg">#{vehNumber}</span>
                     </div>
                     <div className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${v.operativo ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-red-50 text-red-600 border border-red-100 animate-pulse'}`}>{v.operativo ? 'OPERATIVO' : 'ROTO'}</div>
                 </div>
@@ -142,15 +141,10 @@ const CompanyDetailView = ({ role, activeCompany, activeVehicle, activeVehicleId
       <button onClick={() => { if(isolatedVehicleId) { setSelectedCompanyId(null); setIsolatedVehicleId(null); } else { setActiveVehicleId(null); } }} className="flex items-center gap-2 text-xs md:text-sm font-bold uppercase mb-8 text-slate-400 hover:text-slate-900 transition-colors tracking-widest"><Icon name="chevronLeft" size={16}/> Volver a la Flota</button>
       
       <div className="glass-card p-8 md:p-12 relative overflow-hidden shadow-2xl">
-        {/* Etiqueta flotante de número de máquina */}
-        <div className="absolute top-0 right-8 bg-yellow-400 text-slate-900 px-4 py-2 rounded-b-xl font-black text-sm shadow-md tracking-widest">
-            MAQ #{vehNumber}
-        </div>
-
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-10 border-b border-slate-100 pb-10 mt-4">
           <div className="flex items-center gap-6">
-              <div className="w-20 h-20 bg-gradient-to-br from-slate-900 to-slate-800 rounded-[1.5rem] flex items-center justify-center shadow-xl shadow-slate-900/20 text-white">
-                  <Icon name="truck" size={36}/>
+              <div className="w-20 h-20 bg-gradient-to-br from-slate-900 to-slate-800 rounded-[1.5rem] flex items-center justify-center shadow-xl shadow-slate-900/20 text-yellow-400">
+                  <span className="font-black text-3xl md:text-4xl">#{vehNumber}</span>
               </div>
               <div>
                   <h4 className="font-black text-4xl md:text-5xl tracking-tighter text-slate-800">{activeVehicle.nombre}</h4>
@@ -301,10 +295,14 @@ const CalendarView = ({ role, userCompanyId, companies, selectedCompanyId, setSe
             <h3 className="text-2xl font-black tracking-tight text-slate-800 mb-2">Próximos Services</h3>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-8">Ordenados por Urgencia</p>
             <div className="space-y-4 max-h-[400px] overflow-y-auto pr-3">
-              {companyProjections.vProjs.map((p, i) => (
+              {companyProjections.vProjs.map((p, i) => {
+                const vehNumber = p.numeroInterno || (i + 1);
+                return (
                 <div key={i} className={`p-6 rounded-[1.5rem] border-l-[8px] shadow-sm flex flex-col sm:flex-row justify-between gap-6 items-start sm:items-center transition-transform hover:-translate-y-0.5 ${p.restHs <= 50 ? 'border-l-red-500 bg-red-50/80 border border-red-100/50' : 'border-l-blue-500 bg-slate-50/80 border border-slate-100/50'}`}>
                   <div className="flex items-center gap-5">
-                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-inner ${p.restHs <= 50 ? 'bg-white text-red-500' : 'bg-white text-blue-500'}`}><Icon name="truck" size={24}/></div>
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-inner ${p.restHs <= 50 ? 'bg-white text-red-500' : 'bg-white text-blue-500'}`}>
+                          <span className="font-black text-xl">#{vehNumber}</span>
+                      </div>
                       <div>
                           <p className="font-black text-xl tracking-tight text-slate-800 truncate">{p.nombre}</p>
                           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Uso: {p.avgUsage.toFixed(1)} HS/DÍA</p>
@@ -315,7 +313,7 @@ const CalendarView = ({ role, userCompanyId, companies, selectedCompanyId, setSe
                       <p className={`font-black mono text-2xl leading-none ${p.restHs <= 50 ? 'text-red-600' : 'text-slate-800'}`}>{Math.max(0, p.restHs).toFixed(1)} <span className="text-xs">H</span></p>
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           </div>
         </div>
