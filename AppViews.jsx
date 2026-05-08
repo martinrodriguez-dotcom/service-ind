@@ -1032,7 +1032,7 @@ const MetricsView = ({
                 </div>
             </div>
 
-            {/* REPORTE 3: INVERSIÓN FINANCIERA (NUEVO) */}
+            {/* REPORTE 3: INVERSIÓN FINANCIERA */}
             <div className="glass-card p-8 flex flex-col h-full border-t-[8px] border-t-emerald-500 shadow-lg shadow-emerald-500/5">
                 <div className="flex justify-between items-start mb-6">
                     <h3 className="text-2xl font-black tracking-tight text-slate-800">Inversión Mantenimiento</h3>
