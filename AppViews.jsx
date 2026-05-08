@@ -89,7 +89,18 @@ const CompaniesView = ({ companies, role, setForm, setModalType, setSelectedComp
                         <div className="w-14 h-14 bg-slate-900 rounded-[1.25rem] flex items-center justify-center text-yellow-400 shadow-xl shadow-slate-900/20">
                             <Icon name="company" size={26}/>
                         </div>
-                        <FuelTankCapsule capacity={emp.tankCapacity} current={emp.currentFuel} />
+                        {/* AHORA EL TANQUE ES UN BOTÓN DIRECTO DESDE EL DIRECTORIO */}
+                        <div 
+                            onClick={(e) => { 
+                                e.stopPropagation(); 
+                                setSelectedCompanyId(emp.id); 
+                                setActiveVehicleId('TANK'); 
+                            }} 
+                            className="cursor-pointer hover:scale-110 transition-transform origin-right drop-shadow-md"
+                            title="Gestionar Tanque Central"
+                        >
+                            <FuelTankCapsule capacity={emp.tankCapacity} current={emp.currentFuel} />
+                        </div>
                     </div>
                     <h3 className="text-2xl font-black tracking-tight text-slate-800 truncate pr-16 mb-2">{emp.nombre}</h3>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-8">CUIT: {emp.cuit}</p>
@@ -131,6 +142,7 @@ const CompanyDetailView = ({
     handleDeleteVehicle, handleToggleStatus, downloadPDF, generateQR, toggleHistory 
 }) => {
     
+    // VISTA DE LISTADO DE FLOTA (Solo se activa si NO hay un vehículo seleccionado)
     if (!activeVehicleId) {
         return (
             <div className="max-w-6xl mx-auto animate-fade-in">
@@ -151,13 +163,6 @@ const CompanyDetailView = ({
                     </div>
                     
                     <div className="flex flex-wrap items-center gap-4 z-10 w-full md:w-auto">
-                        <div 
-                            onClick={() => setActiveVehicleId('TANK')} 
-                            className="cursor-pointer hover:scale-105 transition-transform bg-white/10 p-3 rounded-2xl border border-white/20 backdrop-blur-sm shadow-xl flex flex-col items-center"
-                        >
-                            <span className="text-[8px] font-black uppercase text-yellow-400 tracking-widest mb-1">Ver Tanque</span>
-                            <FuelTankCapsule capacity={activeCompany.tankCapacity} current={activeCompany.currentFuel} />
-                        </div>
                         {role === 'admin' && (
                             <button 
                                 onClick={() => { setForm(prev => ({...prev, nombre:'', marca:'', modelo:'', serie:'', patente:'', serviceInterval: 250, horometro: ''})); setModalType('vehicle'); }} 
@@ -208,6 +213,7 @@ const CompanyDetailView = ({
         );
     }
 
+    // PANEL AISLADO DE VEHÍCULO O TANQUE
     const isTank = activeVehicleId === 'TANK';
     const vehNumber = isTank ? 'TANQUE' : (activeVehicle.numeroInterno || ((activeCompany.vehiculos || []).findIndex(v => v.id === activeVehicle.id) + 1));
 
