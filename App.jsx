@@ -60,9 +60,13 @@ const App = () => {
     const [scannerActive, setScannerActive] = useState(false);
     const [expandedInfo, setExpandedInfo] = useState({});
     
-    // NUEVO ESTADO PARA VER/EDITAR EVENTOS ESPECÍFICOS
+    // ESTADOS PARA VER/EDITAR EVENTOS ESPECÍFICOS
     const [activeEvent, setActiveEvent] = useState(null);
     
+    // NUEVOS ESTADOS PARA LISTADO DE EVENTOS DE MÉTRICAS (GRÁFICO TORTA)
+    const [activeCategoryEvents, setActiveCategoryEvents] = useState(null);
+    const [activeCategoryName, setActiveCategoryName] = useState('');
+
     const scannerRef = useRef(null);
     const chartRef = useRef(null); 
 
@@ -468,11 +472,15 @@ const App = () => {
         return { fuelEstDate, fuelAvg, criticalLiters, currentFuel, vProjs };
     }, [activeCompany]);
 
+    // --- NUEVO: INTELIGENCIA DE NEGOCIO AMPLIADA (CON AGRUPACIÓN DE EVENTOS) ---
     const intelligenceData = useMemo(() => {
         let allVehicles = [];
-        let eventCounts = { REGISTRO: 0, SERVICE: 0, REPARACION: 0, BAJA: 0 };
+        let eventosAgrupados = { REGISTRO: [], SERVICE: [], REPARACION: [] };
         let breaksPerCompany = {};
         let totalCostPerCompany = {}; 
+        let totalHorasTrabajadas = 0;
+        let totalCostoGlobal = { SERVICE: 0, REPARACION: 0 };
+        let totalLitrosGlobal = 0;
 
         const relevantCompanies = role === 'admin' ? companies : companies.filter(c => c.id === userCompanyId);
 
@@ -489,6 +497,7 @@ const App = () => {
                 if (regs.length >= 2) {
                     hsTrabajadas = (parseFloat(regs[regs.length-1].horas) || 0) - (parseFloat(regs[0].horas) || 0);
                     totalLitros = regs.reduce((sum, e) => sum + parseFloat(e.litros || 0), 0);
+                    totalHorasTrabajadas += hsTrabajadas;
                 }
                 
                 const lPh = hsTrabajadas > 0 ? (totalLitros / hsTrabajadas) : 0;
@@ -508,34 +517,70 @@ const App = () => {
                 });
 
                 (v.eventos || []).forEach(e => {
-                    if (e.tipo === 'REGISTRO') eventCounts.REGISTRO++;
+                    const evtMeta = { ...e, vehiculoNombre: v.nombre, companyNombre: comp.nombre };
+                    
+                    if (e.tipo === 'REGISTRO') {
+                        eventosAgrupados.REGISTRO.push(evtMeta);
+                        totalLitrosGlobal += parseFloat(e.litros || 0);
+                    }
                     if (e.tipo === 'SERVICE') {
-                        eventCounts.SERVICE++;
-                        totalCostPerCompany[comp.nombre] += parseFloat(e.costo || 0);
+                        eventosAgrupados.SERVICE.push(evtMeta);
+                        const c = parseFloat(e.costo || 0);
+                        totalCostPerCompany[comp.nombre] += c;
+                        totalCostoGlobal.SERVICE += c;
                     }
                     if (e.tipo === 'REPARACION' || e.tipo === 'BAJA') { 
-                        eventCounts.REPARACION++; 
+                        eventosAgrupados.REPARACION.push(evtMeta);
+                        const c = parseFloat(e.costo || 0);
+                        totalCostPerCompany[comp.nombre] += c;
+                        totalCostoGlobal.REPARACION += c;
                         breaksPerCompany[comp.nombre]++; 
                     }
                 });
             });
         });
 
+        // Ordenamos los eventos por fecha para el Modal
+        eventosAgrupados.REGISTRO.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+        eventosAgrupados.SERVICE.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+        eventosAgrupados.REPARACION.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+
         return { 
             topConsumidores: [...allVehicles].sort((a,b) => b.lPh - a.lPh).slice(0, 5), 
-            eventCounts, 
+            eventCounts: {
+                REGISTRO: eventosAgrupados.REGISTRO.length,
+                SERVICE: eventosAgrupados.SERVICE.length,
+                REPARACION: eventosAgrupados.REPARACION.length
+            },
+            eventosAgrupados,
             breaksPerCompany, 
             totalCostPerCompany,
+            totalHorasTrabajadas,
+            totalCostoGlobal,
+            totalLitrosGlobal,
             topUso: [...allVehicles].sort((a,b) => b.avgDiario - a.avgDiario).slice(0, 5) 
         };
     }, [companies, role, userCompanyId]);
 
+    // --- NUEVA LÓGICA DE COSTO/HORA PARA GRÁFICOS ---
+    const costPerHourService = intelligenceData.totalHorasTrabajadas > 0 ? (intelligenceData.totalCostoGlobal.SERVICE / intelligenceData.totalHorasTrabajadas) : 0;
+    const costPerHourReparacion = intelligenceData.totalHorasTrabajadas > 0 ? (intelligenceData.totalCostoGlobal.REPARACION / intelligenceData.totalHorasTrabajadas) : 0;
+    const litersPerHour = intelligenceData.totalHorasTrabajadas > 0 ? (intelligenceData.totalLitrosGlobal / intelligenceData.totalHorasTrabajadas) : 0;
+
     const chartGastosData = {
         labels: ['Cargas Diésel', 'Services', 'Roturas/Reparaciones'],
         datasets: [{ 
-            data: [intelligenceData.eventCounts.REGISTRO, intelligenceData.eventCounts.SERVICE, intelligenceData.eventCounts.REPARACION], 
+            data: [
+                intelligenceData.eventCounts.REGISTRO, 
+                intelligenceData.eventCounts.SERVICE, 
+                intelligenceData.eventCounts.REPARACION
+            ], 
             backgroundColor: ['#3b82f6', '#10b981', '#ef4444'], 
-            borderWidth: 0 
+            borderWidth: 0,
+            // Extra Data para el Tooltip en AppViews
+            costoTotal: [0, intelligenceData.totalCostoGlobal.SERVICE, intelligenceData.totalCostoGlobal.REPARACION],
+            costoPorHora: [litersPerHour, costPerHourService, costPerHourReparacion],
+            unidades: ['L/H', '$/H', '$/H']
         }]
     };
 
@@ -557,6 +602,23 @@ const App = () => {
             backgroundColor: '#10b981', 
             borderRadius: 8 
         }]
+    };
+
+    // --- FUNCIÓN DE EXPORTACIÓN EXCEL/CSV ---
+    const exportEventsToCSV = (events, category) => {
+        let csv = "Fecha,Empresa,Equipo,Tipo,Horometro,Litros,Costo,Detalle,Usuario\n";
+        events.forEach(e => {
+            csv += `${e.fecha || ''},${e.companyNombre || ''},${e.vehiculoNombre || ''},${e.tipo || ''},${e.horas || ''},${e.litros || ''},${e.costo || ''},${(e.nota || e.motivo || '').replace(/,/g, ' ')},${e.usuario || ''}\n`;
+        });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `BND_Reporte_${category}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     // --- OPERACIONES ADMIN (CRUD) ---
@@ -642,7 +704,7 @@ const App = () => {
                     fecha: new Date().toLocaleDateString(), 
                     horas: h, 
                     nota: 'Alta inicial del equipo',
-                    usuario: userName // REGISTRO DE USUARIO
+                    usuario: userName 
                 }] 
             }) 
         }); 
@@ -660,7 +722,7 @@ const App = () => {
                 fecha: form.fecha, 
                 litros: l, 
                 nota: form.nota || 'Provisión Externa',
-                usuario: userName // REGISTRO DE USUARIO
+                usuario: userName 
             };
             await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { 
                 currentFuel: (activeCompany.currentFuel || 0) + l,
@@ -678,7 +740,7 @@ const App = () => {
                     horas: h, 
                     litros: l, 
                     nota: form.nota,
-                    usuario: userName // REGISTRO DE USUARIO
+                    usuario: userName 
                 }] 
             } : v);
             
@@ -689,7 +751,7 @@ const App = () => {
                 fecha: form.fecha, 
                 litros: l, 
                 nota: `Carga a equipo #${activeVehicle.numeroInterno || '-'} (${activeVehicle.nombre})`,
-                usuario: userName // REGISTRO DE USUARIO
+                usuario: userName 
             };
             
             await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { 
@@ -715,7 +777,7 @@ const App = () => {
                         tipo: 'ALTA', 
                         fecha: new Date().toLocaleDateString(), 
                         nota: 'Tanque nuevamente operativo',
-                        usuario: userName // REGISTRO DE USUARIO
+                        usuario: userName 
                     }) 
                 });
             } else {
@@ -729,7 +791,7 @@ const App = () => {
                             tipo: 'ALTA', 
                             fecha: new Date().toLocaleDateString(), 
                             nota: 'Puesta en marcha manual',
-                            usuario: userName // REGISTRO DE USUARIO
+                            usuario: userName 
                         }] 
                     } : v) 
                 }); 
@@ -746,7 +808,7 @@ const App = () => {
                     tipo: 'BAJA', 
                     fecha: new Date().toLocaleDateString(), 
                     motivo: form.motivo,
-                    usuario: userName // REGISTRO DE USUARIO
+                    usuario: userName 
                 }) 
             });
         } else {
@@ -760,7 +822,7 @@ const App = () => {
                         tipo: 'BAJA', 
                         fecha: new Date().toLocaleDateString(), 
                         motivo: form.motivo,
-                        usuario: userName // REGISTRO DE USUARIO
+                        usuario: userName 
                     }] 
                 } : v) 
             }); 
@@ -801,7 +863,7 @@ const App = () => {
                     tipo: 'REPARACION', 
                     fecha: new Date().toLocaleDateString(), 
                     nota: form.nota,
-                    usuario: userName // REGISTRO DE USUARIO
+                    usuario: userName 
                 }) 
             });
         } else {
@@ -815,7 +877,7 @@ const App = () => {
                         tipo: 'REPARACION', 
                         fecha: new Date().toLocaleDateString(), 
                         nota: form.nota,
-                        usuario: userName // REGISTRO DE USUARIO
+                        usuario: userName 
                     }] 
                 } : v) 
             }); 
@@ -836,14 +898,13 @@ const App = () => {
                     fecha: form.fecha, 
                     horas: h, 
                     nota: "Sincronización Histórica",
-                    usuario: userName // REGISTRO DE USUARIO
+                    usuario: userName 
                 }] 
             } : v) 
         }); 
         setModalType(null); 
     };
 
-    // Helper para convertir archivo a Base64
     const getBase64 = (file) => new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -878,8 +939,8 @@ const App = () => {
                     insumos: form.insumos, 
                     nota: form.nota,
                     costo: parseFloat(form.costo) || 0,
-                    adjunto: adjuntoData, // SE GUARDA EL OBJETO COMPLETO EN BASE64
-                    usuario: userName // REGISTRO DE USUARIO
+                    adjunto: adjuntoData, 
+                    usuario: userName 
                 }] 
             } : x) 
         }); 
@@ -887,7 +948,6 @@ const App = () => {
         setForm(prev => ({...prev, insumos: [], nota: '', costo: '', adjunto: null})); 
     };
 
-    // --- NUEVO: EDICIÓN DE EVENTOS HISTÓRICOS POR PARTE DEL ADMIN ---
     const handleEditEventSubmit = async () => {
         if (!activeEvent || role !== 'admin') return;
 
@@ -987,15 +1047,12 @@ const App = () => {
                         setScannerActive(false); 
                         scannerRef.current.stop(); 
                         
-                        // Si el rol no es gerente, abre el modal de carga automáticamente
                         if (role !== 'gerente') {
                             setTimeout(() => setModalType('log'), 500);
                         }
                     }
                 }, 
-                (err) => {
-                    // console.error silencioso
-                }
+                (err) => {}
             ).catch(e => console.error("Error cámara:", e));
         }, 500);
     };
@@ -1219,7 +1276,6 @@ const App = () => {
                             downloadPDF={downloadPDF} 
                             generateQR={generateQR} 
                             toggleHistory={toggleHistory} 
-                            // PASAMOS LAS FUNCIONES PARA VER EL DETALLE DEL EVENTO
                             setActiveEvent={setActiveEvent}
                         />
                     )}
@@ -1250,9 +1306,15 @@ const App = () => {
                         <MetricsView 
                             intelligenceData={intelligenceData} 
                             chartGastosData={chartGastosData} 
+                            chartSeveridadData={chartSeveridadData} 
                             chartFinancieroData={chartFinancieroData} 
                             expandedInfo={expandedInfo} 
                             toggleInfo={toggleInfo} 
+                            
+                            // PASAMOS LOS ESTADOS PARA EL MODAL DEL GRÁFICO
+                            setModalType={setModalType}
+                            setActiveCategoryName={setActiveCategoryName}
+                            setActiveCategoryEvents={setActiveCategoryEvents}
                         />
                     )}
                 </div>
@@ -1291,10 +1353,14 @@ const App = () => {
                     handlePrintQR={handlePrintQR} 
                     refillTank={refillTank} 
                     chartRef={chartRef}
-                    // NUEVOS PROPS PARA EVENT DETALIL Y EDICIÓN
                     activeEvent={activeEvent}
                     setActiveEvent={setActiveEvent}
                     handleEditEventSubmit={handleEditEventSubmit}
+                    
+                    // PASAMOS LOS PROPS DEL NUEVO MODAL DE MÉTRICAS
+                    activeCategoryEvents={activeCategoryEvents}
+                    activeCategoryName={activeCategoryName}
+                    exportEventsToCSV={exportEventsToCSV}
                 />
             )}
 
