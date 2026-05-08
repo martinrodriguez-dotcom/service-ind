@@ -1,5 +1,6 @@
 const { React } = window;
 const { Icon, ModalComp } = window;
+const { useState } = React;
 
 const AppModals = ({
     modalType, 
@@ -31,11 +32,17 @@ const AppModals = ({
     handleRepairSubmit, 
     handleHistoricalData, 
     handlePrintQR,
-    activeEvent,             // NUEVO
-    setActiveEvent,          // NUEVO
-    handleEditEventSubmit    // NUEVO
+    activeEvent,             
+    setActiveEvent,          
+    handleEditEventSubmit,   
+    activeCategoryEvents,    // NUEVO PROPS MÉTRICAS
+    activeCategoryName,      // NUEVO PROPS MÉTRICAS
+    exportEventsToCSV        // NUEVO PROPS MÉTRICAS
 }) => {
     
+    // Estado local para controlar la vista de "Ver más" en el listado de la torta
+    const [showAllEvents, setShowAllEvents] = useState(false);
+
     if (!modalType) return null;
     
     const isTank = activeVehicleId === 'TANK';
@@ -47,6 +54,7 @@ const AppModals = ({
                 if(modalType !== 'force_password_change') {
                     setModalType(null); 
                     if (setActiveEvent) setActiveEvent(null);
+                    setShowAllEvents(false); // Reseteamos la vista al cerrar
                 }
             }} 
             hideClose={modalType === 'force_password_change'}
@@ -565,7 +573,7 @@ const AppModals = ({
                     </div>
                 )}
 
-                {/* --- NUEVO: MODAL DE VISUALIZACIÓN / EDICIÓN DE EVENTOS --- */}
+                {/* --- MODAL DE VISUALIZACIÓN / EDICIÓN DE EVENTOS DE AUDITORÍA --- */}
                 {modalType === 'event_detail' && activeEvent && (
                     <div className="space-y-6">
                         <div className="bg-slate-900 p-6 rounded-3xl text-center text-white shadow-xl border-t-8 border-t-blue-500">
@@ -685,6 +693,61 @@ const AppModals = ({
                                 </a>
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* --- NUEVO: MODAL DE DESGLOSE DE EVENTOS DE MÉTRICAS (GRÁFICO DE TORTA) --- */}
+                {modalType === 'category_events' && activeCategoryEvents && (
+                    <div className="space-y-6">
+                        <div className="bg-slate-900 p-6 rounded-3xl text-center text-white shadow-xl border-t-8 border-t-yellow-400">
+                            <p className="text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-1">
+                                Desglose de Categoría
+                            </p>
+                            <h3 className="text-3xl font-black uppercase tracking-tighter">
+                                {activeCategoryName}
+                            </h3>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase mt-2 tracking-widest">
+                                {activeCategoryEvents.length} registros en total
+                            </p>
+                        </div>
+
+                        <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+                            {(showAllEvents ? activeCategoryEvents : activeCategoryEvents.slice(0, 5)).map((ev, idx) => (
+                                <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-100 shadow-sm flex flex-col gap-2">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <span className="font-black text-xs uppercase text-slate-800">{ev.vehiculoNombre}</span>
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{ev.companyNombre}</p>
+                                        </div>
+                                        <span className="font-bold text-slate-400 text-xs">{ev.fecha}</span>
+                                    </div>
+                                    <div className="flex justify-between items-end mt-1">
+                                        <span className="text-xs font-medium text-slate-600 truncate max-w-[200px]">
+                                            {ev.nota || ev.motivo || '-'}
+                                        </span>
+                                        <span className={`font-black text-sm ${ev.costo ? 'text-emerald-600' : 'text-slate-800'}`}>
+                                            {ev.costo ? `$${parseFloat(ev.costo).toLocaleString()}` : (ev.litros ? `${ev.litros} L` : `${ev.horas || 0} HS`)}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {!showAllEvents && activeCategoryEvents.length > 5 && (
+                            <button 
+                                onClick={() => setShowAllEvents(true)}
+                                className="w-full py-3 bg-white text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-colors border border-slate-200 shadow-sm"
+                            >
+                                Ver los {activeCategoryEvents.length - 5} restantes...
+                            </button>
+                        )}
+
+                        <button 
+                            onClick={() => exportEventsToCSV(activeCategoryEvents, activeCategoryName)}
+                            className="btn-premium w-full px-5 py-4 rounded-xl text-sm font-black uppercase shadow-lg flex items-center justify-center gap-3"
+                        >
+                            <Icon name="download" size={16}/> EXPORTAR A EXCEL
+                        </button>
                     </div>
                 )}
 
