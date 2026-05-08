@@ -50,10 +50,11 @@ const AppModals = ({
                             onChange={e => setNewUser({...newUser, role: e.target.value})}
                         >
                             <option value="operario">Operario (Solo Carga)</option>
+                            <option value="gerente">Gerente (Solo Lectura/Métricas)</option>
                             <option value="admin">Administrador (Total)</option>
                         </select>
                         
-                        {newUser.role === 'operario' && (
+                        {['operario', 'gerente'].includes(newUser.role) && (
                             <select 
                                 className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold bg-white appearance-none border-yellow-400" 
                                 value={newUser.companyId || ''} 
@@ -87,11 +88,12 @@ const AppModals = ({
                             onChange={e => setNewUser({...newUser, role: e.target.value})}
                         >
                             <option value="operario">Operario (Solo Carga)</option>
+                            <option value="gerente">Gerente (Solo Lectura/Métricas)</option>
                             <option value="admin">Administrador (Total)</option>
                             <option value="suspendido">Suspender Acceso</option>
                         </select>
                         
-                        {newUser.role === 'operario' && (
+                        {['operario', 'gerente'].includes(newUser.role) && (
                             <select 
                                 className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold bg-white appearance-none border-yellow-400" 
                                 value={newUser.companyId || ''} 
