@@ -190,12 +190,12 @@ const App = () => {
         }
     }, [role]);
 
-    // Redirección automática para operarios
+    // Redirección automática para roles vinculados a empresa (operarios y gerentes)
     useEffect(() => {
-        if (role === 'operario' && userCompanyId && activeTab === 'companies' && !selectedCompanyId) {
+        if (['operario', 'gerente'].includes(role) && userCompanyId && activeTab === 'companies' && !selectedCompanyId) {
             setSelectedCompanyId(userCompanyId);
         }
-        if (role === 'operario' && userCompanyId && activeTab === 'calendar' && !selectedCompanyId) {
+        if (['operario', 'gerente'].includes(role) && userCompanyId && activeTab === 'calendar' && !selectedCompanyId) {
             setSelectedCompanyId(userCompanyId);
         }
     }, [role, userCompanyId, activeTab, selectedCompanyId]);
@@ -223,8 +223,8 @@ const App = () => {
 
     const handleRegisterUser = async (e) => {
         e.preventDefault();
-        if (newUser.role === 'operario' && !newUser.companyId) { 
-            alert("Asigne una empresa al operario."); 
+        if (['operario', 'gerente'].includes(newUser.role) && !newUser.companyId) { 
+            alert("Asigne una empresa al usuario."); 
             return; 
         }
         try {
@@ -244,7 +244,7 @@ const App = () => {
                 nombre: newUser.nombre, 
                 role: newUser.role, 
                 email: newUser.email, 
-                companyId: newUser.role === 'operario' ? newUser.companyId : null,
+                companyId: ['operario', 'gerente'].includes(newUser.role) ? newUser.companyId : null,
                 requiresPasswordChange: true
             });
             
@@ -263,21 +263,21 @@ const App = () => {
     };
 
     const handleUpdateUserSubmit = async () => {
-        if (newUser.role === 'operario' && !newUser.companyId) { 
-            alert("Asigne una empresa al operario."); 
+        if (['operario', 'gerente'].includes(newUser.role) && !newUser.companyId) { 
+            alert("Asigne una empresa al usuario."); 
             return; 
         }
         try {
             await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "users", editingUserId), {
                 nombre: newUser.nombre, 
                 role: newUser.role, 
-                companyId: newUser.role === 'operario' ? newUser.companyId : null
+                companyId: ['operario', 'gerente'].includes(newUser.role) ? newUser.companyId : null
             });
             
             if (user && editingUserId === user.uid) {
                 setUserName(newUser.nombre); 
                 setRole(newUser.role);
-                if(newUser.role === 'operario') {
+                if(['operario', 'gerente'].includes(newUser.role)) {
                     setUserCompanyId(newUser.companyId);
                 }
             }
@@ -327,7 +327,6 @@ const App = () => {
     }, [companies, selectedCompanyId]);
     
     const activeVehicle = useMemo(() => {
-        // Logica para el TANQUE virtual
         if (activeVehicleId === 'TANK' && activeCompany) {
             return {
                 id: 'TANK', 
@@ -366,7 +365,6 @@ const App = () => {
                 });
             }
             
-            // Chequeo de rotura del tanque
             if (emp.tanqueOperativo === false) {
                 list.push({ 
                     type: 'BREAKDOWN', 
@@ -470,7 +468,10 @@ const App = () => {
         let eventCounts = { REGISTRO: 0, SERVICE: 0, REPARACION: 0, BAJA: 0 };
         let breaksPerCompany = {};
 
-        companies.forEach(comp => {
+        // El gerente solo calcula la métrica de su empresa, el admin todas.
+        const relevantCompanies = role === 'admin' ? companies : companies.filter(c => c.id === userCompanyId);
+
+        relevantCompanies.forEach(comp => {
             breaksPerCompany[comp.nombre] = 0;
             (comp.vehiculos || []).forEach(v => {
                 let totalLitros = 0; 
@@ -516,7 +517,7 @@ const App = () => {
             breaksPerCompany, 
             topUso: [...allVehicles].sort((a,b) => b.avgDiario - a.avgDiario).slice(0, 5) 
         };
-    }, [companies]);
+    }, [companies, role, userCompanyId]);
 
     const chartGastosData = {
         labels: ['Cargas Diésel', 'Services', 'Roturas/Reparaciones'],
@@ -882,8 +883,8 @@ const App = () => {
                     if (txt.startsWith("sp-asset:")) { 
                         const [_, cid, vid] = txt.split(":"); 
                         
-                        if (role === 'operario' && cid !== userCompanyId) {
-                            alert("Acceso denegado: Este equipo no pertenece a tu flota.");
+                        if (['operario', 'gerente'].includes(role) && cid !== userCompanyId) {
+                            alert("Acceso denegado: Este equipo no pertenece a tu empresa.");
                             setScannerActive(false); 
                             scannerRef.current.stop(); 
                             return;
@@ -896,12 +897,13 @@ const App = () => {
                         setScannerActive(false); 
                         scannerRef.current.stop(); 
                         
-                        setTimeout(() => setModalType('log'), 500);
+                        // Si el rol es operario o admin, abrir modal de carga. Gerente no carga.
+                        if (role !== 'gerente') {
+                            setTimeout(() => setModalType('log'), 500);
+                        }
                     }
                 }, 
-                (err) => {
-                    // console.error silencioso
-                }
+                (err) => {}
             ).catch(e => console.error("Error cámara:", e));
         }, 500);
     };
@@ -1019,9 +1021,12 @@ const App = () => {
         nav.push({ id: 'calendar', label: 'Proyecciones', icon: 'calendar' });
         nav.push({ id: 'metrics', label: 'Métricas', icon: 'chart' }); 
         nav.push({ id: 'config', label: 'Admin', icon: 'settings' });
-    } else {
+    } else if (role === 'gerente') {
         nav.push({ id: 'companies', label: 'Mi Flota', icon: 'company' });
         nav.push({ id: 'calendar', label: 'Mis Proyecciones', icon: 'calendar' });
+        nav.push({ id: 'metrics', label: 'Mis Métricas', icon: 'chart' });
+    } else {
+        nav.push({ id: 'companies', label: 'Mi Flota', icon: 'company' });
     }
 
     // --- INTERFAZ PRINCIPAL ---
@@ -1084,6 +1089,7 @@ const App = () => {
                     {activeTab === 'dashboard' && DashboardView && (
                         <DashboardView 
                             alerts={alerts} 
+                            role={role}
                             handleUpdateWorkflow={handleUpdateWorkflow} 
                             setSelectedCompanyId={setSelectedCompanyId} 
                             setIsolatedVehicleId={setIsolatedVehicleId} 
@@ -1146,7 +1152,7 @@ const App = () => {
                             companyProjections={companyProjections} 
                         />
                     )}
-                    {activeTab === 'metrics' && role === 'admin' && MetricsView && (
+                    {activeTab === 'metrics' && ['admin', 'gerente'].includes(role) && MetricsView && (
                         <MetricsView 
                             intelligenceData={intelligenceData} 
                             chartGastosData={chartGastosData} 
