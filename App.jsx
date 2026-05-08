@@ -60,6 +60,9 @@ const App = () => {
     const [scannerActive, setScannerActive] = useState(false);
     const [expandedInfo, setExpandedInfo] = useState({});
     
+    // NUEVO ESTADO PARA VER/EDITAR EVENTOS ESPECÍFICOS
+    const [activeEvent, setActiveEvent] = useState(null);
+    
     const scannerRef = useRef(null);
     const chartRef = useRef(null); 
 
@@ -329,7 +332,6 @@ const App = () => {
     }, [companies, selectedCompanyId]);
     
     const activeVehicle = useMemo(() => {
-        // Logica para el TANQUE virtual
         if (activeVehicleId === 'TANK' && activeCompany) {
             return {
                 id: 'TANK', 
@@ -368,7 +370,6 @@ const App = () => {
                 });
             }
             
-            // Chequeo de rotura del tanque
             if (emp.tanqueOperativo === false) {
                 list.push({ 
                     type: 'BREAKDOWN', 
@@ -640,7 +641,8 @@ const App = () => {
                     tipo: 'ALTA', 
                     fecha: new Date().toLocaleDateString(), 
                     horas: h, 
-                    nota: 'Alta inicial del equipo' 
+                    nota: 'Alta inicial del equipo',
+                    usuario: userName // REGISTRO DE USUARIO
                 }] 
             }) 
         }); 
@@ -657,7 +659,8 @@ const App = () => {
                 tipo: 'INGRESO', 
                 fecha: form.fecha, 
                 litros: l, 
-                nota: form.nota || 'Provisión Externa' 
+                nota: form.nota || 'Provisión Externa',
+                usuario: userName // REGISTRO DE USUARIO
             };
             await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { 
                 currentFuel: (activeCompany.currentFuel || 0) + l,
@@ -674,7 +677,8 @@ const App = () => {
                     fecha: form.fecha, 
                     horas: h, 
                     litros: l, 
-                    nota: form.nota 
+                    nota: form.nota,
+                    usuario: userName // REGISTRO DE USUARIO
                 }] 
             } : v);
             
@@ -684,7 +688,8 @@ const App = () => {
                 tipo: 'DESCARGA', 
                 fecha: form.fecha, 
                 litros: l, 
-                nota: `Carga a equipo #${activeVehicle.numeroInterno || '-'} (${activeVehicle.nombre})` 
+                nota: `Carga a equipo #${activeVehicle.numeroInterno || '-'} (${activeVehicle.nombre})`,
+                usuario: userName // REGISTRO DE USUARIO
             };
             
             await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { 
@@ -709,7 +714,8 @@ const App = () => {
                         id: Date.now(), 
                         tipo: 'ALTA', 
                         fecha: new Date().toLocaleDateString(), 
-                        nota: 'Tanque nuevamente operativo' 
+                        nota: 'Tanque nuevamente operativo',
+                        usuario: userName // REGISTRO DE USUARIO
                     }) 
                 });
             } else {
@@ -722,7 +728,8 @@ const App = () => {
                             id: Date.now(), 
                             tipo: 'ALTA', 
                             fecha: new Date().toLocaleDateString(), 
-                            nota: 'Puesta en marcha manual' 
+                            nota: 'Puesta en marcha manual',
+                            usuario: userName // REGISTRO DE USUARIO
                         }] 
                     } : v) 
                 }); 
@@ -738,7 +745,8 @@ const App = () => {
                     id: Date.now(), 
                     tipo: 'BAJA', 
                     fecha: new Date().toLocaleDateString(), 
-                    motivo: form.motivo 
+                    motivo: form.motivo,
+                    usuario: userName // REGISTRO DE USUARIO
                 }) 
             });
         } else {
@@ -751,7 +759,8 @@ const App = () => {
                         id: Date.now(), 
                         tipo: 'BAJA', 
                         fecha: new Date().toLocaleDateString(), 
-                        motivo: form.motivo 
+                        motivo: form.motivo,
+                        usuario: userName // REGISTRO DE USUARIO
                     }] 
                 } : v) 
             }); 
@@ -791,7 +800,8 @@ const App = () => {
                     id: Date.now(), 
                     tipo: 'REPARACION', 
                     fecha: new Date().toLocaleDateString(), 
-                    nota: form.nota 
+                    nota: form.nota,
+                    usuario: userName // REGISTRO DE USUARIO
                 }) 
             });
         } else {
@@ -804,7 +814,8 @@ const App = () => {
                         id: Date.now(), 
                         tipo: 'REPARACION', 
                         fecha: new Date().toLocaleDateString(), 
-                        nota: form.nota 
+                        nota: form.nota,
+                        usuario: userName // REGISTRO DE USUARIO
                     }] 
                 } : v) 
             }); 
@@ -824,16 +835,37 @@ const App = () => {
                     tipo: 'REGISTRO', 
                     fecha: form.fecha, 
                     horas: h, 
-                    nota: "Sincronización Histórica" 
+                    nota: "Sincronización Histórica",
+                    usuario: userName // REGISTRO DE USUARIO
                 }] 
             } : v) 
         }); 
         setModalType(null); 
     };
 
+    // Helper para convertir archivo a Base64
+    const getBase64 = (file) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+    });
+
     const handleServiceReset = async () => { 
-        const adjuntoFlag = form.adjunto ? true : false;
-        
+        let adjuntoData = null;
+        if (form.adjunto) {
+            try {
+                const base64 = await getBase64(form.adjunto);
+                adjuntoData = {
+                    name: form.adjunto.name,
+                    type: form.adjunto.type,
+                    data: base64
+                };
+            } catch (error) {
+                console.error("Error convirtiendo archivo a Base64", error);
+            }
+        }
+
         await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { 
             vehiculos: activeCompany.vehiculos.map(x => x.id === activeVehicleId ? { 
                 ...x, 
@@ -846,12 +878,46 @@ const App = () => {
                     insumos: form.insumos, 
                     nota: form.nota,
                     costo: parseFloat(form.costo) || 0,
-                    tieneAdjunto: adjuntoFlag
+                    adjunto: adjuntoData, // SE GUARDA EL OBJETO COMPLETO EN BASE64
+                    usuario: userName // REGISTRO DE USUARIO
                 }] 
             } : x) 
         }); 
         setModalType(null); 
         setForm(prev => ({...prev, insumos: [], nota: '', costo: '', adjunto: null})); 
+    };
+
+    // --- NUEVO: EDICIÓN DE EVENTOS HISTÓRICOS POR PARTE DEL ADMIN ---
+    const handleEditEventSubmit = async () => {
+        if (!activeEvent || role !== 'admin') return;
+
+        const updatedEvent = { 
+            ...activeEvent, 
+            nota: form.nota || activeEvent.nota,
+            motivo: form.motivo || activeEvent.motivo,
+            horas: parseFloat(form.horas) || activeEvent.horas,
+            litros: parseFloat(form.litros) || activeEvent.litros,
+            costo: parseFloat(form.costo) || activeEvent.costo
+        };
+
+        if (activeVehicleId === 'TANK') {
+            const updatedEvents = activeCompany.eventosTanque.map(e => e.id === activeEvent.id ? updatedEvent : e);
+            await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { 
+                eventosTanque: updatedEvents 
+            });
+        } else {
+            const updatedVehicles = activeCompany.vehiculos.map(v => v.id === activeVehicleId ? {
+                ...v,
+                eventos: v.eventos.map(e => e.id === activeEvent.id ? updatedEvent : e)
+            } : v);
+            await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { 
+                vehiculos: updatedVehicles 
+            });
+        }
+        
+        setModalType(null);
+        setActiveEvent(null);
+        setForm(prev => ({...prev, nota: '', motivo: '', horas: '', litros: '', costo: ''}));
     };
 
     const refillTank = async () => { 
@@ -1153,6 +1219,8 @@ const App = () => {
                             downloadPDF={downloadPDF} 
                             generateQR={generateQR} 
                             toggleHistory={toggleHistory} 
+                            // PASAMOS LAS FUNCIONES PARA VER EL DETALLE DEL EVENTO
+                            setActiveEvent={setActiveEvent}
                         />
                     )}
                     {activeTab === 'config' && role === 'admin' && ConfigView && (
@@ -1223,6 +1291,10 @@ const App = () => {
                     handlePrintQR={handlePrintQR} 
                     refillTank={refillTank} 
                     chartRef={chartRef}
+                    // NUEVOS PROPS PARA EVENT DETALIL Y EDICIÓN
+                    activeEvent={activeEvent}
+                    setActiveEvent={setActiveEvent}
+                    handleEditEventSubmit={handleEditEventSubmit}
                 />
             )}
 
