@@ -2,21 +2,47 @@ const { React } = window;
 const { Icon, ModalComp } = window;
 
 const AppModals = ({
-    modalType, setModalType, role, companies, activeCompany, activeVehicle, activeVehicleId, 
-    form, setForm, newUser, setNewUser, newPassword, setNewPassword, confirmPassword, setConfirmPassword, pwdError, 
-    handleRegisterUser, handleUpdateUserSubmit, handleChangePassword, 
-    handleAddCompany, handleEditCompanySubmit, handleAddVehicle, handleEditVehicleSubmit, 
-    handleDailyLog, handleServiceReset, handleConfirmDowntime, handleRepairSubmit, handleHistoricalData, 
+    modalType, 
+    setModalType, 
+    role, 
+    companies, 
+    activeCompany, 
+    activeVehicle, 
+    activeVehicleId, 
+    form, 
+    setForm, 
+    newUser, 
+    setNewUser, 
+    newPassword, 
+    setNewPassword, 
+    confirmPassword, 
+    setConfirmPassword, 
+    pwdError, 
+    handleRegisterUser, 
+    handleUpdateUserSubmit, 
+    handleChangePassword, 
+    handleAddCompany, 
+    handleEditCompanySubmit, 
+    handleAddVehicle, 
+    handleEditVehicleSubmit, 
+    handleDailyLog, 
+    handleServiceReset, 
+    handleConfirmDowntime, 
+    handleRepairSubmit, 
+    handleHistoricalData, 
     handlePrintQR
 }) => {
     
     if (!modalType) return null;
+    
     const isTank = activeVehicleId === 'TANK';
 
     return (
         <ModalComp 
             title={modalType.replace(/_/g,' ')} 
-            onClose={() => { if(modalType !== 'force_password_change') setModalType(null); }} 
+            onClose={() => { 
+                if(modalType !== 'force_password_change') setModalType(null); 
+            }} 
             hideClose={modalType === 'force_password_change'}
         >
             <div className="max-w-md mx-auto w-full">
@@ -61,7 +87,9 @@ const AppModals = ({
                                 onChange={e => setNewUser({...newUser, companyId: e.target.value})}
                             >
                                 <option value="">Seleccione Empresa Asignada...</option>
-                                {companies.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                                {companies.map(c => (
+                                    <option key={c.id} value={c.id}>{c.nombre}</option>
+                                ))}
                             </select>
                         )}
                         
@@ -100,7 +128,9 @@ const AppModals = ({
                                 onChange={e => setNewUser({...newUser, companyId: e.target.value})}
                             >
                                 <option value="">Seleccione Empresa Asignada...</option>
-                                {companies.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                                {companies.map(c => (
+                                    <option key={c.id} value={c.id}>{c.nombre}</option>
+                                ))}
                             </select>
                         )}
                         
@@ -117,7 +147,9 @@ const AppModals = ({
                     <div className="space-y-6 text-center">
                         <img src="./icon.png" alt="BND" className="w-20 h-20 mx-auto rounded-[1.5rem] shadow-xl object-cover" />
                         <h2 className="text-2xl font-black uppercase italic">Nueva Seguridad</h2>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4">Actualiza tu contraseña temporal para activar la cuenta.</p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4">
+                            Actualiza tu contraseña temporal para activar la cuenta.
+                        </p>
                         
                         {pwdError && <p className="text-red-500 font-bold text-xs">{pwdError}</p>}
                         
@@ -320,7 +352,9 @@ const AppModals = ({
                         <div className={`grid ${isTank ? 'grid-cols-1' : 'grid-cols-2'} gap-4 text-center`}>
                             {!isTank && (
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Horómetro Final</label>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                        Horómetro Final
+                                    </label>
                                     <input 
                                         type="number" 
                                         className="input-premium px-4 py-4 rounded-xl w-full text-2xl md:text-3xl text-center font-black" 
@@ -350,20 +384,37 @@ const AppModals = ({
                     </div>
                 )}
 
+                {/* MODAL DE SERVICE (CON COSTOS Y ADJUNTOS) */}
                 {modalType === 'service' && !isTank && (
                     <div className="space-y-6">
                         <div className="bg-slate-900 p-6 md:p-8 rounded-3xl text-center text-white border-t-8 border-t-yellow-400 shadow-xl">
-                            <p className="text-[9px] md:text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-2 md:mb-3 italic">Certificación Service</p>
-                            <p className="text-4xl md:text-5xl font-black italic tracking-tighter">HS {activeVehicle?.horometroTotal?.toLocaleString()}</p>
+                            <p className="text-[9px] md:text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-2 md:mb-3 italic">
+                                Certificación Service
+                            </p>
+                            <p className="text-4xl md:text-5xl font-black italic tracking-tighter">
+                                HS {activeVehicle?.horometroTotal?.toLocaleString()}
+                            </p>
                         </div>
+                        
                         <div className="space-y-4">
-                            <label className="text-[10px] md:text-xs font-black uppercase text-slate-800 ml-2">Checklist de Insumos</label>
+                            <label className="text-[10px] md:text-xs font-black uppercase text-slate-800 ml-2">
+                                Checklist de Insumos
+                            </label>
                             <div className="flex flex-wrap gap-2">
                                 {['Aceite 15W40', 'Filtro Aceite', 'Filtro Aire', 'Filtro Comb.', 'Hidráulico', 'Refrigerante'].map(item => (
                                     <button 
                                         key={item} 
-                                        onClick={() => setForm(p => ({ ...p, insumos: p.insumos.includes(item) ? p.insumos.filter(i => i !== item) : [...p.insumos, item] }))} 
-                                        className={`px-4 py-2 md:px-5 md:py-3 rounded-xl font-black text-[9px] md:text-[10px] uppercase border transition-colors ${form.insumos.includes(item) ? 'bg-slate-900 text-white border-slate-900 shadow-md' : 'bg-white text-slate-400 border-slate-200'}`}
+                                        onClick={() => setForm(p => ({ 
+                                            ...p, 
+                                            insumos: p.insumos.includes(item) 
+                                                ? p.insumos.filter(i => i !== item) 
+                                                : [...p.insumos, item] 
+                                        }))} 
+                                        className={`px-4 py-2 md:px-5 md:py-3 rounded-xl font-black text-[9px] md:text-[10px] uppercase border transition-colors ${
+                                            form.insumos.includes(item) 
+                                                ? 'bg-slate-900 text-white border-slate-900 shadow-md' 
+                                                : 'bg-white text-slate-400 border-slate-200'
+                                        }`}
                                     >
                                         {item}
                                     </button>
@@ -378,7 +429,13 @@ const AppModals = ({
                                 />
                                 <button 
                                     onClick={() => { 
-                                        if(form.insumoManual) setForm(p => ({ ...p, insumos: [...p.insumos, form.insumoManual.toUpperCase()], insumoManual: '' })); 
+                                        if(form.insumoManual) {
+                                            setForm(p => ({ 
+                                                ...p, 
+                                                insumos: [...p.insumos, form.insumoManual.toUpperCase()], 
+                                                insumoManual: '' 
+                                            })); 
+                                        }
                                     }} 
                                     className="px-6 bg-slate-900 text-white rounded-xl font-black text-lg transition-all active:scale-95"
                                 >
@@ -386,6 +443,39 @@ const AppModals = ({
                                 </button>
                             </div>
                         </div>
+
+                        {/* NUEVO BLOQUE: FINANZAS Y ARCHIVOS */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-100 pt-6">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">
+                                    Valor de Factura ($)
+                                </label>
+                                <input 
+                                    type="number" 
+                                    className="input-premium px-4 py-3 w-full font-black text-lg text-emerald-600" 
+                                    placeholder="0.00" 
+                                    onChange={e => setForm(prev => ({...prev, costo: e.target.value}))} 
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-slate-400 ml-2">
+                                    Adjuntar Comprobante
+                                </label>
+                                <label className="cursor-pointer flex items-center justify-center gap-2 bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl px-4 py-3 hover:bg-slate-100 transition-colors">
+                                    <Icon name="download" size={16} className={form.adjunto ? "text-emerald-500" : "text-slate-400"}/>
+                                    <span className={`text-[10px] font-bold uppercase ${form.adjunto ? "text-emerald-600" : "text-slate-500"}`}>
+                                        {form.adjunto ? "ARCHIVO LISTO" : "FOTO / PDF"}
+                                    </span>
+                                    <input 
+                                        type="file" 
+                                        className="hidden" 
+                                        accept="image/*,application/pdf" 
+                                        onChange={e => setForm(prev => ({...prev, adjunto: e.target.files[0]}))} 
+                                    />
+                                </label>
+                            </div>
+                        </div>
+
                         <textarea 
                             className="input-premium px-4 py-3 rounded-xl w-full h-24 md:h-32 text-xs md:text-sm font-bold resize-none" 
                             placeholder="RECOMENDACIONES TÉCNICAS..." 
