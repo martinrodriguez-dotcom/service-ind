@@ -250,7 +250,7 @@ const CompanyDetailView = ({
     downloadPDF, 
     generateQR, 
     toggleHistory,
-    setActiveEvent // NUEVO PROP PARA SELECCIONAR EVENTO
+    setActiveEvent 
 }) => {
     
     // VISTA DE LISTADO DE FLOTA
@@ -922,9 +922,13 @@ const CalendarView = ({
 const MetricsView = ({ 
     intelligenceData, 
     chartGastosData, 
+    chartSeveridadData,
     chartFinancieroData, 
     expandedInfo, 
-    toggleInfo 
+    toggleInfo,
+    setModalType,
+    setActiveCategoryName,
+    setActiveCategoryEvents
 }) => (
     <div className="max-w-6xl mx-auto animate-fade-in space-y-10">
         <h2 className="text-3xl md:text-4xl font-black tracking-tight text-slate-800">
@@ -966,7 +970,7 @@ const MetricsView = ({
                 </div>
             </div>
 
-            {/* REPORTE 2: DISTRIBUCIÓN DE GASTOS OPERATIVOS */}
+            {/* REPORTE 2: DISTRIBUCIÓN DE GASTOS OPERATIVOS CON TOOLTIPS Y CLICKS */}
             <div className="glass-card p-8 flex flex-col h-full border-t-[8px] border-t-yellow-400 shadow-lg shadow-yellow-400/5">
                 <div className="flex justify-between items-start mb-6">
                     <h3 className="text-2xl font-black tracking-tight text-slate-800">Gastos Operativos</h3>
@@ -979,15 +983,51 @@ const MetricsView = ({
                 </div>
                 {expandedInfo['gastos'] && (
                     <p className="text-xs font-bold text-yellow-800 bg-yellow-50 p-4 rounded-xl mb-6 leading-relaxed border border-yellow-200">
-                        Compara la frecuencia de Cargas, Services y Eventos de Reparación. Si la porción roja domina, el mantenimiento preventivo está fallando gravemente.
+                        Proporción de eventos. Haz clic en una porción de la torta para ver todos los registros y descargar en Excel.
                     </p>
                 )}
                 
-                <div className="w-full max-w-[280px] mx-auto mt-auto py-6">
+                <div className="w-full max-w-[280px] mx-auto mt-auto py-6 cursor-pointer">
                     <ChartWidget 
                         type="pie" 
                         data={chartGastosData} 
-                        options={{ responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { family: 'Plus Jakarta Sans', weight: 'bold' } } } } }} 
+                        options={{ 
+                            responsive: true, 
+                            plugins: { 
+                                legend: { 
+                                    position: 'bottom', 
+                                    labels: { font: { family: 'Plus Jakarta Sans', weight: 'bold' } } 
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            const label = context.label || '';
+                                            const val = context.raw || 0;
+                                            const ds = context.dataset;
+                                            const costoHora = ds.costoPorHora ? ds.costoPorHora[context.dataIndex] : 0;
+                                            const unidad = ds.unidades ? ds.unidades[context.dataIndex] : '';
+                                            return ` ${label}: ${val} eventos | Ratio: ${costoHora.toFixed(2)} ${unidad}`;
+                                        }
+                                    }
+                                }
+                            },
+                            onClick: (event, elements, chart) => {
+                                if (elements && elements.length > 0) {
+                                    const index = elements[0].index;
+                                    const label = chart.data.labels[index];
+                                    let key = '';
+                                    if (index === 0) key = 'REGISTRO';
+                                    else if (index === 1) key = 'SERVICE';
+                                    else if (index === 2) key = 'REPARACION';
+                                    
+                                    if (key && intelligenceData.eventosAgrupados) {
+                                        setActiveCategoryName(label);
+                                        setActiveCategoryEvents(intelligenceData.eventosAgrupados[key]);
+                                        setModalType('category_events');
+                                    }
+                                }
+                            }
+                        }} 
                     />
                 </div>
             </div>
