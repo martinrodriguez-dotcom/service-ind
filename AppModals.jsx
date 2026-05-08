@@ -2,47 +2,21 @@ const { React } = window;
 const { Icon, ModalComp } = window;
 
 const AppModals = ({
-    modalType, 
-    setModalType, 
-    role, 
-    companies, 
-    activeCompany, 
-    activeVehicle, 
-    activeVehicleId, 
-    form, 
-    setForm, 
-    newUser, 
-    setNewUser, 
-    newPassword, 
-    setNewPassword, 
-    confirmPassword, 
-    setConfirmPassword, 
-    pwdError, 
-    handleRegisterUser, 
-    handleUpdateUserSubmit, 
-    handleChangePassword, 
-    handleAddCompany, 
-    handleEditCompanySubmit, 
-    handleAddVehicle, 
-    handleEditVehicleSubmit, 
-    handleDailyLog, 
-    handleServiceReset, 
-    handleConfirmDowntime, 
-    handleRepairSubmit, 
-    handleHistoricalData, 
-    handlePrintQR, 
-    refillTank, 
-    chartRef
+    modalType, setModalType, role, companies, activeCompany, activeVehicle, activeVehicleId, 
+    form, setForm, newUser, setNewUser, newPassword, setNewPassword, confirmPassword, setConfirmPassword, pwdError, 
+    handleRegisterUser, handleUpdateUserSubmit, handleChangePassword, 
+    handleAddCompany, handleEditCompanySubmit, handleAddVehicle, handleEditVehicleSubmit, 
+    handleDailyLog, handleServiceReset, handleConfirmDowntime, handleRepairSubmit, handleHistoricalData, 
+    handlePrintQR
 }) => {
     
     if (!modalType) return null;
+    const isTank = activeVehicleId === 'TANK';
 
     return (
         <ModalComp 
             title={modalType.replace(/_/g,' ')} 
-            onClose={() => { 
-                if(modalType !== 'force_password_change') setModalType(null); 
-            }} 
+            onClose={() => { if(modalType !== 'force_password_change') setModalType(null); }} 
             hideClose={modalType === 'force_password_change'}
         >
             <div className="max-w-md mx-auto w-full">
@@ -78,6 +52,7 @@ const AppModals = ({
                             <option value="operario">Operario (Solo Carga)</option>
                             <option value="admin">Administrador (Total)</option>
                         </select>
+                        
                         {newUser.role === 'operario' && (
                             <select 
                                 className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold bg-white appearance-none border-yellow-400" 
@@ -88,6 +63,7 @@ const AppModals = ({
                                 {companies.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                             </select>
                         )}
+                        
                         <button type="submit" className="btn-accent w-full px-5 py-3 rounded-xl text-sm font-black uppercase mt-2 shadow-md">
                             CREAR ACCESO
                         </button>
@@ -114,6 +90,7 @@ const AppModals = ({
                             <option value="admin">Administrador (Total)</option>
                             <option value="suspendido">Suspender Acceso</option>
                         </select>
+                        
                         {newUser.role === 'operario' && (
                             <select 
                                 className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold bg-white appearance-none border-yellow-400" 
@@ -124,6 +101,7 @@ const AppModals = ({
                                 {companies.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                             </select>
                         )}
+                        
                         <button 
                             onClick={handleUpdateUserSubmit} 
                             className="btn-accent w-full px-5 py-3 rounded-xl text-sm font-black uppercase mt-2 shadow-md"
@@ -138,7 +116,9 @@ const AppModals = ({
                         <img src="./icon.png" alt="BND" className="w-20 h-20 mx-auto rounded-[1.5rem] shadow-xl object-cover" />
                         <h2 className="text-2xl font-black uppercase italic">Nueva Seguridad</h2>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4">Actualiza tu contraseña temporal para activar la cuenta.</p>
+                        
                         {pwdError && <p className="text-red-500 font-bold text-xs">{pwdError}</p>}
+                        
                         <form onSubmit={handleChangePassword} className="space-y-4">
                             <input 
                                 type="password" 
@@ -168,35 +148,35 @@ const AppModals = ({
                         <input 
                             className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold" 
                             placeholder="RAZÓN SOCIAL" 
-                            onChange={e => setForm({...form, nombre: e.target.value.toUpperCase()})} 
+                            onChange={e => setForm(prev => ({...prev, nombre: e.target.value.toUpperCase()}))} 
                         />
                         <input 
                             className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold" 
                             placeholder="CUIT" 
-                            onChange={e => setForm({...form, cuit: e.target.value})} 
+                            onChange={e => setForm(prev => ({...prev, cuit: e.target.value}))} 
                         />
                         <input 
                             className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold" 
                             placeholder="RESPONSABLE" 
-                            onChange={e => setForm({...form, responsable: e.target.value})} 
+                            onChange={e => setForm(prev => ({...prev, responsable: e.target.value}))} 
                         />
                         <div className="grid grid-cols-2 gap-4">
                             <input 
                                 className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" 
                                 type="number" 
-                                placeholder="CAPACIDAD TOTAL (L)" 
-                                onChange={e => setForm({...form, tankCapacity: e.target.value})} 
+                                placeholder="CAPACIDAD TANQUE (L)" 
+                                onChange={e => setForm(prev => ({...prev, tankCapacity: e.target.value}))} 
                             />
                             <input 
                                 className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" 
                                 type="number" 
                                 placeholder="% CRÍTICO ALERTA" 
                                 defaultValue="25" 
-                                onChange={e => setForm({...form, criticalFuelPerc: e.target.value})} 
+                                onChange={e => setForm(prev => ({...prev, criticalFuelPerc: e.target.value}))} 
                             />
                         </div>
                         <button onClick={handleAddCompany} className="btn-accent w-full px-5 py-3 rounded-xl text-sm font-black mt-2 uppercase shadow-md">
-                            REGISTRAR
+                            REGISTRAR CLIENTE
                         </button>
                     </div>
                 )}
@@ -206,17 +186,17 @@ const AppModals = ({
                         <input 
                             className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold" 
                             value={form.nombre} 
-                            onChange={e => setForm({...form, nombre: e.target.value.toUpperCase()})} 
+                            onChange={e => setForm(prev => ({...prev, nombre: e.target.value.toUpperCase()}))} 
                         />
                         <input 
                             className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold" 
                             value={form.cuit} 
-                            onChange={e => setForm({...form, cuit: e.target.value})} 
+                            onChange={e => setForm(prev => ({...prev, cuit: e.target.value}))} 
                         />
                         <input 
                             className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold" 
                             value={form.responsable} 
-                            onChange={e => setForm({...form, responsable: e.target.value})} 
+                            onChange={e => setForm(prev => ({...prev, responsable: e.target.value}))} 
                         />
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
@@ -225,7 +205,7 @@ const AppModals = ({
                                     className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" 
                                     type="number" 
                                     value={form.tankCapacity} 
-                                    onChange={e => setForm({...form, tankCapacity: e.target.value})} 
+                                    onChange={e => setForm(prev => ({...prev, tankCapacity: e.target.value}))} 
                                 />
                             </div>
                             <div className="space-y-1">
@@ -234,7 +214,7 @@ const AppModals = ({
                                     className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" 
                                     type="number" 
                                     value={form.criticalFuelPerc} 
-                                    onChange={e => setForm({...form, criticalFuelPerc: e.target.value})} 
+                                    onChange={e => setForm(prev => ({...prev, criticalFuelPerc: e.target.value}))} 
                                 />
                             </div>
                         </div>
@@ -249,41 +229,41 @@ const AppModals = ({
                         <input 
                             className="input-premium px-4 py-4 rounded-xl w-full text-lg font-black italic" 
                             placeholder="BND-XX (INTERNO)" 
-                            onChange={e => setForm({...form, nombre: e.target.value.toUpperCase()})} 
+                            onChange={e => setForm(prev => ({...prev, nombre: e.target.value.toUpperCase()}))} 
                         />
                         <div className="grid grid-cols-2 gap-4">
                             <input 
                                 className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" 
                                 placeholder="MARCA" 
-                                onChange={e => setForm({...form, marca: e.target.value})} 
+                                onChange={e => setForm(prev => ({...prev, marca: e.target.value}))} 
                             />
                             <input 
                                 className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" 
                                 placeholder="MODELO" 
-                                onChange={e => setForm({...form, modelo: e.target.value})} 
+                                onChange={e => setForm(prev => ({...prev, modelo: e.target.value}))} 
                             />
                             <input 
                                 className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" 
                                 placeholder="SERIE" 
-                                onChange={e => setForm({...form, serie: e.target.value})} 
+                                onChange={e => setForm(prev => ({...prev, serie: e.target.value}))} 
                             />
                             <input 
                                 className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" 
                                 placeholder="PATENTE" 
-                                onChange={e => setForm({...form, patente: e.target.value})} 
+                                onChange={e => setForm(prev => ({...prev, patente: e.target.value}))} 
                             />
                             <input 
                                 className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" 
                                 type="number" 
                                 placeholder="HS INICIAL" 
-                                onChange={e => setForm({...form, horometro: e.target.value})} 
+                                onChange={e => setForm(prev => ({...prev, horometro: e.target.value}))} 
                             />
                             <input 
                                 className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" 
                                 type="number" 
                                 placeholder="CICLO SERVICE" 
                                 defaultValue="250" 
-                                onChange={e => setForm({...form, serviceInterval: e.target.value})} 
+                                onChange={e => setForm(prev => ({...prev, serviceInterval: e.target.value}))} 
                             />
                         </div>
                         <button onClick={handleAddVehicle} className="btn-premium w-full px-5 py-4 rounded-xl text-sm font-black mt-2 uppercase shadow-md">
@@ -297,34 +277,34 @@ const AppModals = ({
                         <input 
                             className="input-premium px-4 py-4 rounded-xl w-full text-lg font-black italic" 
                             value={form.nombre} 
-                            onChange={e => setForm({...form, nombre: e.target.value.toUpperCase()})} 
+                            onChange={e => setForm(prev => ({...prev, nombre: e.target.value.toUpperCase()}))} 
                         />
                         <div className="grid grid-cols-2 gap-4">
                             <input 
                                 className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" 
                                 value={form.marca} 
-                                onChange={e => setForm({...form, marca: e.target.value})} 
+                                onChange={e => setForm(prev => ({...prev, marca: e.target.value}))} 
                             />
                             <input 
                                 className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" 
                                 value={form.modelo} 
-                                onChange={e => setForm({...form, modelo: e.target.value})} 
+                                onChange={e => setForm(prev => ({...prev, modelo: e.target.value}))} 
                             />
                             <input 
                                 className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" 
                                 value={form.serie} 
-                                onChange={e => setForm({...form, serie: e.target.value})} 
+                                onChange={e => setForm(prev => ({...prev, serie: e.target.value}))} 
                             />
                             <input 
                                 className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" 
                                 value={form.patente} 
-                                onChange={e => setForm({...form, patente: e.target.value})} 
+                                onChange={e => setForm(prev => ({...prev, patente: e.target.value}))} 
                             />
                             <input 
                                 className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" 
                                 type="number" 
                                 value={form.serviceInterval} 
-                                onChange={e => setForm({...form, serviceInterval: e.target.value})} 
+                                onChange={e => setForm(prev => ({...prev, serviceInterval: e.target.value}))} 
                             />
                         </div>
                         <button onClick={handleEditVehicleSubmit} className="btn-premium w-full px-5 py-4 rounded-xl text-sm font-black mt-2 uppercase shadow-md">
@@ -335,36 +315,40 @@ const AppModals = ({
 
                 {modalType === 'log' && (
                     <div className="space-y-6">
-                        <div className="grid grid-cols-2 gap-4 text-center">
+                        <div className={`grid ${isTank ? 'grid-cols-1' : 'grid-cols-2'} gap-4 text-center`}>
+                            {!isTank && (
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Horómetro Final</label>
+                                    <input 
+                                        type="number" 
+                                        className="input-premium px-4 py-4 rounded-xl w-full text-2xl md:text-3xl text-center font-black" 
+                                        onChange={e => setForm(prev => ({...prev, horas: e.target.value}))} 
+                                    />
+                                </div>
+                            )}
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Horómetro Final</label>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    {isTank ? 'Litros a Ingresar' : 'Carga Diesel (L)'}
+                                </label>
                                 <input 
                                     type="number" 
                                     className="input-premium px-4 py-4 rounded-xl w-full text-2xl md:text-3xl text-center font-black" 
-                                    onChange={e => setForm({...form, horas: e.target.value})} 
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Carga Diesel (L)</label>
-                                <input 
-                                    type="number" 
-                                    className="input-premium px-4 py-4 rounded-xl w-full text-2xl md:text-3xl text-center font-black" 
-                                    onChange={e => setForm({...form, litros: e.target.value})} 
+                                    onChange={e => setForm(prev => ({...prev, litros: e.target.value}))} 
                                 />
                             </div>
                         </div>
                         <textarea 
                             className="input-premium px-5 py-4 rounded-xl w-full h-32 md:h-40 text-sm font-bold resize-none" 
-                            placeholder="NOTAS DE LA JORNADA..." 
-                            onChange={e => setForm({...form, nota: e.target.value.toUpperCase()})} 
+                            placeholder={isTank ? "REMITO DEL PROVEEDOR..." : "NOTAS DE LA JORNADA..."} 
+                            onChange={e => setForm(prev => ({...prev, nota: e.target.value.toUpperCase()}))} 
                         />
                         <button onClick={handleDailyLog} className="btn-accent w-full px-5 py-4 rounded-xl text-base md:text-lg font-black uppercase shadow-lg">
-                            IMPACTAR PLANILLA
+                            {isTank ? 'REGISTRAR INGRESO' : 'IMPACTAR PLANILLA'}
                         </button>
                     </div>
                 )}
 
-                {modalType === 'service' && (
+                {modalType === 'service' && !isTank && (
                     <div className="space-y-6">
                         <div className="bg-slate-900 p-6 md:p-8 rounded-3xl text-center text-white border-t-8 border-t-yellow-400 shadow-xl">
                             <p className="text-[9px] md:text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-2 md:mb-3 italic">Certificación Service</p>
@@ -388,7 +372,7 @@ const AppModals = ({
                                     className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" 
                                     placeholder="Otro repuesto..." 
                                     value={form.insumoManual} 
-                                    onChange={e => setForm({...form, insumoManual: e.target.value})} 
+                                    onChange={e => setForm(prev => ({...prev, insumoManual: e.target.value}))} 
                                 />
                                 <button 
                                     onClick={() => { 
@@ -403,7 +387,7 @@ const AppModals = ({
                         <textarea 
                             className="input-premium px-4 py-3 rounded-xl w-full h-24 md:h-32 text-xs md:text-sm font-bold resize-none" 
                             placeholder="RECOMENDACIONES TÉCNICAS..." 
-                            onChange={e => setForm({...form, nota: e.target.value.toUpperCase()})} 
+                            onChange={e => setForm(prev => ({...prev, nota: e.target.value.toUpperCase()}))} 
                         />
                         <button onClick={handleServiceReset} className="btn-accent w-full px-5 py-4 rounded-xl text-sm md:text-base font-black uppercase shadow-lg">
                             Cerrar Ciclo
@@ -417,16 +401,16 @@ const AppModals = ({
                             <Icon name="alert" size={40} className="text-red-600"/>
                         </div>
                         <div>
-                            <h3 className="text-3xl font-black uppercase italic text-red-600 tracking-tighter">Rotura</h3>
+                            <h3 className="text-3xl font-black uppercase italic text-red-600 tracking-tighter">Reportar Evento</h3>
                             <p className="text-[10px] font-black text-slate-400 uppercase mt-2 tracking-widest">Notificación inmediata al panel.</p>
                         </div>
                         <textarea 
                             className="input-premium px-5 py-4 rounded-xl w-full h-32 md:h-40 text-sm text-red-600 border-red-200 bg-red-50/50 font-bold resize-none" 
-                            placeholder="MOTIVO DE LA PARADA..." 
-                            onChange={e => setForm({...form, motivo: e.target.value.toUpperCase()})} 
+                            placeholder="DETALLE O MOTIVO DEL EVENTO..." 
+                            onChange={e => setForm(prev => ({...prev, motivo: e.target.value.toUpperCase()}))} 
                         />
                         <button onClick={handleConfirmDowntime} className="btn-premium w-full px-5 py-4 rounded-2xl bg-red-600 text-base md:text-lg font-black uppercase shadow-xl border-b-4 border-b-red-800 active:translate-y-2 transition-all">
-                            EMITIR PARADA
+                            EMITIR REPORTE
                         </button>
                     </div>
                 )}
@@ -436,11 +420,11 @@ const AppModals = ({
                         <div className="w-20 h-20 bg-emerald-500 rounded-[1.5rem] flex items-center justify-center mx-auto text-white shadow-xl shadow-emerald-200">
                             <Icon name="check" size={40}/>
                         </div>
-                        <h3 className="text-3xl font-black uppercase italic text-emerald-600 tracking-tighter">Equipo Reparado</h3>
+                        <h3 className="text-3xl font-black uppercase italic text-emerald-600 tracking-tighter">Evento Resuelto</h3>
                         <textarea 
                             className="input-premium px-5 py-4 rounded-xl w-full h-32 md:h-40 text-sm font-bold resize-none" 
-                            placeholder="DETALLE DE REPARACIÓN..." 
-                            onChange={e => setForm({...form, nota: e.target.value.toUpperCase()})} 
+                            placeholder="DETALLE DE LA RESOLUCIÓN..." 
+                            onChange={e => setForm(prev => ({...prev, nota: e.target.value.toUpperCase()}))} 
                         />
                         <button onClick={handleRepairSubmit} className="btn-premium w-full px-5 py-4 rounded-2xl bg-emerald-600 text-base md:text-lg font-black uppercase shadow-xl">
                             DAR DE ALTA UNIDAD
@@ -448,7 +432,7 @@ const AppModals = ({
                     </div>
                 )}
 
-                {modalType === 'historical' && (
+                {modalType === 'historical' && !isTank && (
                     <div className="space-y-4">
                         <div className="p-4 bg-slate-50 border rounded-xl text-[10px] md:text-xs font-bold text-slate-400 leading-relaxed">
                             Carga de registros históricos. Sincroniza el horómetro total del equipo.
@@ -458,14 +442,14 @@ const AppModals = ({
                                 className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" 
                                 type="date" 
                                 value={form.fecha} 
-                                onChange={e => setForm({...form, fecha: e.target.value})} 
+                                onChange={e => setForm(prev => ({...prev, fecha: e.target.value}))} 
                             />
                             <input 
                                 className="input-premium px-4 py-3 rounded-xl w-full text-xs font-bold" 
                                 type="number" 
                                 placeholder="HS Totales" 
                                 value={form.horas} 
-                                onChange={e => setForm({...form, horas: e.target.value})} 
+                                onChange={e => setForm(prev => ({...prev, horas: e.target.value}))} 
                             />
                         </div>
                         <button onClick={handleHistoricalData} className="btn-premium w-full px-5 py-3 rounded-xl text-xs font-black uppercase mt-2 shadow-md">
@@ -485,32 +469,6 @@ const AppModals = ({
                     </div>
                 )}
 
-                {modalType === 'details' && (
-                    <div className="space-y-8 w-full max-w-2xl mx-auto">
-                        <div className="bg-slate-900 p-8 md:p-10 rounded-[2rem] flex flex-col sm:flex-row justify-between items-center gap-6 border-l-[12px] border-l-yellow-400 shadow-2xl">
-                            <div className="text-center sm:text-left w-full">
-                                <p className="text-[10px] font-black text-yellow-400 uppercase mb-2 tracking-widest italic">Stock Depósito Central</p>
-                                <p className="text-4xl md:text-5xl font-black text-white mono">
-                                    {(activeCompany?.currentFuel || 0).toLocaleString()} <span className="text-base opacity-30">L</span>
-                                </p>
-                            </div>
-                            {role === 'admin' && (
-                                <button 
-                                    onClick={() => { if(confirm("¿Cargar depósito al 100%?")) refillTank(); }} 
-                                    className="btn-accent px-8 py-4 rounded-xl text-xs font-black w-full sm:w-auto shadow-lg shadow-yellow-400/20"
-                                >
-                                    CARGAR
-                                </button>
-                            )}
-                        </div>
-                        <div className="space-y-3">
-                            <p className="text-[10px] md:text-xs font-black uppercase italic text-slate-400 ml-2 tracking-widest">Consumo Proyectado (Mensual)</p>
-                            <div className="glass-card p-4 md:p-6 bg-white w-full">
-                                <canvas ref={chartRef}></canvas>
-                            </div>
-                        </div>
-                    </div>
-                )}
             </div>
         </ModalComp>
     );
