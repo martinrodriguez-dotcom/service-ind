@@ -30,7 +30,10 @@ const AppModals = ({
     handleConfirmDowntime, 
     handleRepairSubmit, 
     handleHistoricalData, 
-    handlePrintQR
+    handlePrintQR,
+    activeEvent,             // NUEVO
+    setActiveEvent,          // NUEVO
+    handleEditEventSubmit    // NUEVO
 }) => {
     
     if (!modalType) return null;
@@ -41,7 +44,10 @@ const AppModals = ({
         <ModalComp 
             title={modalType.replace(/_/g,' ')} 
             onClose={() => { 
-                if(modalType !== 'force_password_change') setModalType(null); 
+                if(modalType !== 'force_password_change') {
+                    setModalType(null); 
+                    if (setActiveEvent) setActiveEvent(null);
+                }
             }} 
             hideClose={modalType === 'force_password_change'}
         >
@@ -384,7 +390,6 @@ const AppModals = ({
                     </div>
                 )}
 
-                {/* MODAL DE SERVICE (CON COSTOS Y ADJUNTOS) */}
                 {modalType === 'service' && !isTank && (
                     <div className="space-y-6">
                         <div className="bg-slate-900 p-6 md:p-8 rounded-3xl text-center text-white border-t-8 border-t-yellow-400 shadow-xl">
@@ -444,7 +449,6 @@ const AppModals = ({
                             </div>
                         </div>
 
-                        {/* NUEVO BLOQUE: FINANZAS Y ARCHIVOS */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-100 pt-6">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 ml-2">
@@ -558,6 +562,129 @@ const AppModals = ({
                         <button onClick={handlePrintQR} className="btn-premium w-full px-5 py-4 rounded-xl text-sm font-black uppercase shadow-xl mt-4">
                             IMPRIMIR ETIQUETA
                         </button>
+                    </div>
+                )}
+
+                {/* --- NUEVO: MODAL DE VISUALIZACIÓN / EDICIÓN DE EVENTOS --- */}
+                {modalType === 'event_detail' && activeEvent && (
+                    <div className="space-y-6">
+                        <div className="bg-slate-900 p-6 rounded-3xl text-center text-white shadow-xl border-t-8 border-t-blue-500">
+                            <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">
+                                Detalle de Registro
+                            </p>
+                            <h3 className="text-3xl font-black uppercase tracking-tighter">
+                                {activeEvent.tipo}
+                            </h3>
+                            <div className="flex justify-center gap-4 mt-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                <span><Icon name="calendar" size={12} className="inline mr-1"/> {activeEvent.fecha}</span>
+                                <span><Icon name="user" size={12} className="inline mr-1"/> {activeEvent.usuario || 'SISTEMA'}</span>
+                            </div>
+                        </div>
+
+                        {role === 'admin' ? (
+                            <div className="space-y-4">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 text-center">
+                                    Modo Edición (Administrador)
+                                </p>
+                                
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Lectura (HS / L)</label>
+                                        <input 
+                                            type="number" 
+                                            className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold" 
+                                            value={form.horas || ''} 
+                                            onChange={e => setForm(prev => ({...prev, horas: e.target.value}))} 
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Carga Diésel (L)</label>
+                                        <input 
+                                            type="number" 
+                                            className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold" 
+                                            value={form.litros || ''} 
+                                            onChange={e => setForm(prev => ({...prev, litros: e.target.value}))} 
+                                        />
+                                    </div>
+                                </div>
+                                
+                                <div className="space-y-1">
+                                    <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Costo Factura ($)</label>
+                                    <input 
+                                        type="number" 
+                                        className="input-premium px-4 py-3 rounded-xl w-full text-sm font-bold text-emerald-600" 
+                                        value={form.costo || ''} 
+                                        onChange={e => setForm(prev => ({...prev, costo: e.target.value}))} 
+                                    />
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Nota / Detalle</label>
+                                    <textarea 
+                                        className="input-premium px-4 py-3 rounded-xl w-full h-24 text-sm font-bold resize-none" 
+                                        value={form.nota || form.motivo || ''} 
+                                        onChange={e => setForm(prev => ({
+                                            ...prev, 
+                                            nota: e.target.value.toUpperCase(), 
+                                            motivo: e.target.value.toUpperCase()
+                                        }))} 
+                                    />
+                                </div>
+
+                                <button onClick={handleEditEventSubmit} className="btn-accent w-full px-5 py-4 rounded-xl text-sm font-black uppercase shadow-lg">
+                                    ACTUALIZAR REGISTRO
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">
+                                            {isTank ? 'Stock' : 'Horómetro'}
+                                        </p>
+                                        <p className="font-black text-slate-800 text-lg mono">
+                                            {activeEvent.horas || '-'} {isTank ? 'L' : 'HS'}
+                                        </p>
+                                    </div>
+                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">
+                                            Movimiento
+                                        </p>
+                                        <p className="font-black text-slate-800 text-lg mono">
+                                            {activeEvent.litros ? `${activeEvent.litros} L` : '-'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                    <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">
+                                        Costo Financiero
+                                    </p>
+                                    <p className="font-black text-emerald-600 text-lg mono">
+                                        {activeEvent.costo ? `$${parseFloat(activeEvent.costo).toLocaleString()}` : '-'}
+                                    </p>
+                                </div>
+                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                    <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">
+                                        Detalle del Registro
+                                    </p>
+                                    <p className="font-bold text-slate-700 text-sm leading-relaxed">
+                                        {activeEvent.nota || activeEvent.motivo || '-'}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeEvent.adjunto && activeEvent.adjunto.data && (
+                            <div className="pt-4 border-t border-slate-100">
+                                <a 
+                                    href={activeEvent.adjunto.data} 
+                                    download={activeEvent.adjunto.name || 'Comprobante_BND'} 
+                                    className="flex items-center justify-center gap-3 bg-white border border-slate-200 hover:border-emerald-400 hover:text-emerald-600 px-5 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest text-slate-600 transition-colors shadow-sm"
+                                >
+                                    <Icon name="download" size={16}/> DESCARGAR COMPROBANTE
+                                </a>
+                            </div>
+                        )}
                     </div>
                 )}
 
