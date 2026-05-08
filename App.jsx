@@ -60,10 +60,10 @@ const App = () => {
     const [scannerActive, setScannerActive] = useState(false);
     const [expandedInfo, setExpandedInfo] = useState({});
     
-    // ESTADOS PARA VER/EDITAR EVENTOS ESPECÍFICOS
+    // ESTADOS PARA VER/EDITAR EVENTOS ESPECÍFICOS DE LA AUDITORÍA
     const [activeEvent, setActiveEvent] = useState(null);
     
-    // NUEVOS ESTADOS PARA LISTADO DE EVENTOS DE MÉTRICAS (GRÁFICO TORTA)
+    // ESTADOS PARA EL DESGLOSE DE MÉTRICAS (GRÁFICO DE TORTA)
     const [activeCategoryEvents, setActiveCategoryEvents] = useState(null);
     const [activeCategoryName, setActiveCategoryName] = useState('');
 
@@ -472,7 +472,7 @@ const App = () => {
         return { fuelEstDate, fuelAvg, criticalLiters, currentFuel, vProjs };
     }, [activeCompany]);
 
-    // --- NUEVO: INTELIGENCIA DE NEGOCIO AMPLIADA (CON AGRUPACIÓN DE EVENTOS) ---
+    // --- INTELIGENCIA DE NEGOCIO (AGRUPADA Y FINANCIERA) ---
     const intelligenceData = useMemo(() => {
         let allVehicles = [];
         let eventosAgrupados = { REGISTRO: [], SERVICE: [], REPARACION: [] };
@@ -540,7 +540,7 @@ const App = () => {
             });
         });
 
-        // Ordenamos los eventos por fecha para el Modal
+        // Ordenamos los eventos por fecha para el Modal de desglose de Torta
         eventosAgrupados.REGISTRO.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
         eventosAgrupados.SERVICE.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
         eventosAgrupados.REPARACION.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
@@ -562,7 +562,6 @@ const App = () => {
         };
     }, [companies, role, userCompanyId]);
 
-    // --- NUEVA LÓGICA DE COSTO/HORA PARA GRÁFICOS ---
     const costPerHourService = intelligenceData.totalHorasTrabajadas > 0 ? (intelligenceData.totalCostoGlobal.SERVICE / intelligenceData.totalHorasTrabajadas) : 0;
     const costPerHourReparacion = intelligenceData.totalHorasTrabajadas > 0 ? (intelligenceData.totalCostoGlobal.REPARACION / intelligenceData.totalHorasTrabajadas) : 0;
     const litersPerHour = intelligenceData.totalHorasTrabajadas > 0 ? (intelligenceData.totalLitrosGlobal / intelligenceData.totalHorasTrabajadas) : 0;
@@ -577,7 +576,6 @@ const App = () => {
             ], 
             backgroundColor: ['#3b82f6', '#10b981', '#ef4444'], 
             borderWidth: 0,
-            // Extra Data para el Tooltip en AppViews
             costoTotal: [0, intelligenceData.totalCostoGlobal.SERVICE, intelligenceData.totalCostoGlobal.REPARACION],
             costoPorHora: [litersPerHour, costPerHourService, costPerHourReparacion],
             unidades: ['L/H', '$/H', '$/H']
@@ -621,9 +619,15 @@ const App = () => {
         document.body.removeChild(link);
     };
 
+    // --- SANITIZADOR PARA FIREBASE ---
+    // Remueve undefined y convierte objetos complejos a simples
+    const sanitizeForFirebase = (obj) => {
+        return JSON.parse(JSON.stringify(obj));
+    };
+
     // --- OPERACIONES ADMIN (CRUD) ---
     const saveBndSettings = async () => { 
-        await fb.setDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "config", "bnd_info"), bndSettings); 
+        await fb.setDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "config", "bnd_info"), sanitizeForFirebase(bndSettings)); 
         setActiveTab('dashboard'); 
     };
     
@@ -634,13 +638,13 @@ const App = () => {
     };
     
     const handleEditCompanySubmit = async () => { 
-        await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", selectedCompanyId), { 
+        await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", selectedCompanyId), sanitizeForFirebase({ 
             nombre: form.nombre, 
             cuit: form.cuit, 
             responsable: form.responsable, 
             tankCapacity: parseFloat(form.tankCapacity), 
             criticalFuelPerc: parseFloat(form.criticalFuelPerc) || 25 
-        }); 
+        })); 
         setModalType(null); 
     };
     
@@ -655,7 +659,7 @@ const App = () => {
     
     const handleEditVehicleSubmit = async () => { 
         await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { 
-            vehiculos: activeCompany.vehiculos.map(v => v.id === activeVehicleId ? { 
+            vehiculos: activeCompany.vehiculos.map(v => v.id === activeVehicleId ? sanitizeForFirebase({ 
                 ...v, 
                 nombre: form.nombre, 
                 marca: form.marca, 
@@ -663,14 +667,14 @@ const App = () => {
                 serie: form.serie, 
                 patente: form.patente, 
                 serviceInterval: parseFloat(form.serviceInterval) 
-            } : v) 
+            }) : v) 
         }); 
         setModalType(null); 
     };
     
     const handleAddCompany = async () => { 
         if(!form.nombre) return; 
-        await fb.addDoc(fb.collection(db, "artifacts", APP_ID, "public", "data", "companies"), { 
+        await fb.addDoc(fb.collection(db, "artifacts", APP_ID, "public", "data", "companies"), sanitizeForFirebase({ 
             nombre: form.nombre, 
             cuit: form.cuit, 
             responsable: form.responsable, 
@@ -680,7 +684,7 @@ const App = () => {
             tanqueOperativo: true, 
             eventosTanque: [], 
             vehiculos: [] 
-        }); 
+        })); 
         setModalType(null); 
         setForm(prev => ({...prev, nombre: '', cuit: '', responsable: ''})); 
     };
@@ -689,24 +693,26 @@ const App = () => {
         const h = parseFloat(form.horometro) || 0; 
         const nuevoNumero = (activeCompany.vehiculos || []).length + 1; 
         
+        const newVehicle = sanitizeForFirebase({ 
+            id: Date.now().toString(), 
+            numeroInterno: nuevoNumero, 
+            ...form, 
+            horometroTotal: h, 
+            ultimoServiceHoras: h, 
+            operativo: true, 
+            workflowStatus: 'PENDIENTE', 
+            eventos: [{ 
+                id: Date.now(), 
+                tipo: 'ALTA', 
+                fecha: new Date().toLocaleDateString(), 
+                horas: h, 
+                nota: 'Alta inicial del equipo',
+                usuario: userName 
+            }] 
+        });
+
         await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { 
-            vehiculos: fb.arrayUnion({ 
-                id: Date.now().toString(), 
-                numeroInterno: nuevoNumero, 
-                ...form, 
-                horometroTotal: h, 
-                ultimoServiceHoras: h, 
-                operativo: true, 
-                workflowStatus: 'PENDIENTE', 
-                eventos: [{ 
-                    id: Date.now(), 
-                    tipo: 'ALTA', 
-                    fecha: new Date().toLocaleDateString(), 
-                    horas: h, 
-                    nota: 'Alta inicial del equipo',
-                    usuario: userName 
-                }] 
-            }) 
+            vehiculos: fb.arrayUnion(newVehicle) 
         }); 
         setModalType(null); 
     };
@@ -716,43 +722,45 @@ const App = () => {
         const l = parseFloat(form.litros) || 0;
         
         if (activeVehicleId === 'TANK') {
-            const event = { 
+            const event = sanitizeForFirebase({ 
                 id: Date.now(), 
                 tipo: 'INGRESO', 
                 fecha: form.fecha, 
                 litros: l, 
                 nota: form.nota || 'Provisión Externa',
                 usuario: userName 
-            };
+            });
             await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { 
                 currentFuel: (activeCompany.currentFuel || 0) + l,
                 eventosTanque: fb.arrayUnion(event)
             });
         } else {
             const h = parseFloat(form.horas); 
+            const newEvent = sanitizeForFirebase({ 
+                id: Date.now(), 
+                tipo: 'REGISTRO', 
+                fecha: form.fecha, 
+                horas: h, 
+                litros: l, 
+                nota: form.nota,
+                usuario: userName 
+            });
+
             const updatedVehicles = activeCompany.vehiculos.map(v => v.id === activeVehicleId ? { 
                 ...v, 
                 horometroTotal: h, 
-                eventos: [...(v.eventos || []), { 
-                    id: Date.now(), 
-                    tipo: 'REGISTRO', 
-                    fecha: form.fecha, 
-                    horas: h, 
-                    litros: l, 
-                    nota: form.nota,
-                    usuario: userName 
-                }] 
+                eventos: [...(v.eventos || []), newEvent] 
             } : v);
             
             const newFuel = Math.max(0, activeCompany.currentFuel - l);
-            const tankEvent = { 
+            const tankEvent = sanitizeForFirebase({ 
                 id: Date.now(), 
                 tipo: 'DESCARGA', 
                 fecha: form.fecha, 
                 litros: l, 
                 nota: `Carga a equipo #${activeVehicle.numeroInterno || '-'} (${activeVehicle.nombre})`,
                 usuario: userName 
-            };
+            });
             
             await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { 
                 vehiculos: updatedVehicles, 
@@ -769,16 +777,18 @@ const App = () => {
             setActiveVehicleId(vId); 
             setModalType('downtime'); 
         } else {
+            const altaEvent = sanitizeForFirebase({ 
+                id: Date.now(), 
+                tipo: 'ALTA', 
+                fecha: new Date().toLocaleDateString(), 
+                nota: 'Puesta en marcha manual',
+                usuario: userName 
+            });
+
             if (vId === 'TANK') {
                 await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { 
                     tanqueOperativo: true, 
-                    eventosTanque: fb.arrayUnion({ 
-                        id: Date.now(), 
-                        tipo: 'ALTA', 
-                        fecha: new Date().toLocaleDateString(), 
-                        nota: 'Tanque nuevamente operativo',
-                        usuario: userName 
-                    }) 
+                    eventosTanque: fb.arrayUnion(altaEvent) 
                 });
             } else {
                 await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { 
@@ -786,13 +796,7 @@ const App = () => {
                         ...v, 
                         operativo: true, 
                         workflowStatus: 'PENDIENTE', 
-                        eventos: [...(v.eventos || []), { 
-                            id: Date.now(), 
-                            tipo: 'ALTA', 
-                            fecha: new Date().toLocaleDateString(), 
-                            nota: 'Puesta en marcha manual',
-                            usuario: userName 
-                        }] 
+                        eventos: [...(v.eventos || []), altaEvent] 
                     } : v) 
                 }); 
             }
@@ -800,16 +804,18 @@ const App = () => {
     };
 
     const handleConfirmDowntime = async () => { 
+        const bajaEvent = sanitizeForFirebase({ 
+            id: Date.now(), 
+            tipo: 'BAJA', 
+            fecha: new Date().toLocaleDateString(), 
+            motivo: form.motivo,
+            usuario: userName 
+        });
+
         if (activeVehicleId === 'TANK') {
             await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { 
                 tanqueOperativo: false, 
-                eventosTanque: fb.arrayUnion({ 
-                    id: Date.now(), 
-                    tipo: 'BAJA', 
-                    fecha: new Date().toLocaleDateString(), 
-                    motivo: form.motivo,
-                    usuario: userName 
-                }) 
+                eventosTanque: fb.arrayUnion(bajaEvent) 
             });
         } else {
             await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { 
@@ -817,13 +823,7 @@ const App = () => {
                     ...v, 
                     operativo: false, 
                     workflowStatus: 'PENDIENTE', 
-                    eventos: [...(v.eventos || []), { 
-                        id: Date.now(), 
-                        tipo: 'BAJA', 
-                        fecha: new Date().toLocaleDateString(), 
-                        motivo: form.motivo,
-                        usuario: userName 
-                    }] 
+                    eventos: [...(v.eventos || []), bajaEvent] 
                 } : v) 
             }); 
         }
@@ -855,16 +855,18 @@ const App = () => {
     };
 
     const handleRepairSubmit = async () => { 
+        const repairEvent = sanitizeForFirebase({ 
+            id: Date.now(), 
+            tipo: 'REPARACION', 
+            fecha: new Date().toLocaleDateString(), 
+            nota: form.nota,
+            usuario: userName 
+        });
+
         if (activeVehicleId === 'TANK') {
             await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", selectedCompanyId), { 
                 tanqueOperativo: true, 
-                eventosTanque: fb.arrayUnion({ 
-                    id: Date.now(), 
-                    tipo: 'REPARACION', 
-                    fecha: new Date().toLocaleDateString(), 
-                    nota: form.nota,
-                    usuario: userName 
-                }) 
+                eventosTanque: fb.arrayUnion(repairEvent) 
             });
         } else {
             await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", selectedCompanyId), { 
@@ -872,13 +874,7 @@ const App = () => {
                     ...v, 
                     operativo: true, 
                     workflowStatus: 'PENDIENTE', 
-                    eventos: [...(v.eventos || []), { 
-                        id: Date.now(), 
-                        tipo: 'REPARACION', 
-                        fecha: new Date().toLocaleDateString(), 
-                        nota: form.nota,
-                        usuario: userName 
-                    }] 
+                    eventos: [...(v.eventos || []), repairEvent] 
                 } : v) 
             }); 
         }
@@ -888,23 +884,27 @@ const App = () => {
     const handleHistoricalData = async () => { 
         const h = parseFloat(form.horas); 
         if(isNaN(h)) return; 
+        
+        const histEvent = sanitizeForFirebase({ 
+            id: Date.now(), 
+            tipo: 'REGISTRO', 
+            fecha: form.fecha, 
+            horas: h, 
+            nota: "Sincronización Histórica",
+            usuario: userName 
+        });
+
         await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { 
             vehiculos: activeCompany.vehiculos.map(v => v.id === activeVehicleId ? { 
                 ...v, 
                 horometroTotal: Math.max(v.horometroTotal, h), 
-                eventos: [...(v.eventos || []), { 
-                    id: Date.now(), 
-                    tipo: 'REGISTRO', 
-                    fecha: form.fecha, 
-                    horas: h, 
-                    nota: "Sincronización Histórica",
-                    usuario: userName 
-                }] 
+                eventos: [...(v.eventos || []), histEvent] 
             } : v) 
         }); 
         setModalType(null); 
     };
 
+    // Helper para convertir archivo a Base64
     const getBase64 = (file) => new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -914,7 +914,7 @@ const App = () => {
 
     const handleServiceReset = async () => { 
         let adjuntoData = null;
-        if (form.adjunto) {
+        if (form.adjunto && form.adjunto instanceof File) {
             try {
                 const base64 = await getBase64(form.adjunto);
                 adjuntoData = {
@@ -927,21 +927,23 @@ const App = () => {
             }
         }
 
+        const serviceEvent = sanitizeForFirebase({ 
+            id: Date.now(), 
+            tipo: 'SERVICE', 
+            fecha: new Date().toLocaleDateString(), 
+            horas: activeVehicle.horometroTotal, 
+            insumos: form.insumos, 
+            nota: form.nota,
+            costo: parseFloat(form.costo) || 0,
+            adjunto: adjuntoData, 
+            usuario: userName 
+        });
+
         await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { 
             vehiculos: activeCompany.vehiculos.map(x => x.id === activeVehicleId ? { 
                 ...x, 
                 ultimoServiceHoras: x.horometroTotal, 
-                eventos: [...(x.eventos || []), { 
-                    id: Date.now(), 
-                    tipo: 'SERVICE', 
-                    fecha: new Date().toLocaleDateString(), 
-                    horas: x.horometroTotal, 
-                    insumos: form.insumos, 
-                    nota: form.nota,
-                    costo: parseFloat(form.costo) || 0,
-                    adjunto: adjuntoData, 
-                    usuario: userName 
-                }] 
+                eventos: [...(x.eventos || []), serviceEvent] 
             } : x) 
         }); 
         setModalType(null); 
@@ -951,14 +953,23 @@ const App = () => {
     const handleEditEventSubmit = async () => {
         if (!activeEvent || role !== 'admin') return;
 
-        const updatedEvent = { 
+        let adjuntoData = activeEvent.adjunto || null;
+        if (form.adjunto && form.adjunto instanceof File) {
+            try {
+                const base64 = await getBase64(form.adjunto);
+                adjuntoData = { name: form.adjunto.name || 'documento', type: form.adjunto.type || 'file', data: base64 };
+            } catch (error) {}
+        }
+
+        const updatedEvent = sanitizeForFirebase({ 
             ...activeEvent, 
-            nota: form.nota || activeEvent.nota,
-            motivo: form.motivo || activeEvent.motivo,
+            nota: form.nota !== undefined ? form.nota : activeEvent.nota,
+            motivo: form.motivo !== undefined ? form.motivo : activeEvent.motivo,
             horas: parseFloat(form.horas) || activeEvent.horas,
             litros: parseFloat(form.litros) || activeEvent.litros,
-            costo: parseFloat(form.costo) || activeEvent.costo
-        };
+            costo: parseFloat(form.costo) || activeEvent.costo,
+            adjunto: adjuntoData
+        });
 
         if (activeVehicleId === 'TANK') {
             const updatedEvents = activeCompany.eventosTanque.map(e => e.id === activeEvent.id ? updatedEvent : e);
@@ -977,7 +988,7 @@ const App = () => {
         
         setModalType(null);
         setActiveEvent(null);
-        setForm(prev => ({...prev, nota: '', motivo: '', horas: '', litros: '', costo: ''}));
+        setForm(prev => ({...prev, nota: '', motivo: '', horas: '', litros: '', costo: '', adjunto: null}));
     };
 
     const refillTank = async () => { 
@@ -1052,7 +1063,9 @@ const App = () => {
                         }
                     }
                 }, 
-                (err) => {}
+                (err) => {
+                    // console.error silencioso
+                }
             ).catch(e => console.error("Error cámara:", e));
         }, 500);
     };
@@ -1310,8 +1323,6 @@ const App = () => {
                             chartFinancieroData={chartFinancieroData} 
                             expandedInfo={expandedInfo} 
                             toggleInfo={toggleInfo} 
-                            
-                            // PASAMOS LOS ESTADOS PARA EL MODAL DEL GRÁFICO
                             setModalType={setModalType}
                             setActiveCategoryName={setActiveCategoryName}
                             setActiveCategoryEvents={setActiveCategoryEvents}
@@ -1356,8 +1367,6 @@ const App = () => {
                     activeEvent={activeEvent}
                     setActiveEvent={setActiveEvent}
                     handleEditEventSubmit={handleEditEventSubmit}
-                    
-                    // PASAMOS LOS PROPS DEL NUEVO MODAL DE MÉTRICAS
                     activeCategoryEvents={activeCategoryEvents}
                     activeCategoryName={activeCategoryName}
                     exportEventsToCSV={exportEventsToCSV}
