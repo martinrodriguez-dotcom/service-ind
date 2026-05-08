@@ -18,7 +18,7 @@ const ChartWidget = ({ type, data, options }) => {
 };
 
 // --- 1. VISTA: PANEL DE ALERTAS ---
-const DashboardView = ({ alerts, handleUpdateWorkflow, setSelectedCompanyId, setIsolatedVehicleId, setActiveVehicleId, setActiveTab }) => (
+const DashboardView = ({ alerts, role, handleUpdateWorkflow, setSelectedCompanyId, setIsolatedVehicleId, setActiveVehicleId, setActiveTab }) => (
     <div className="max-w-4xl mx-auto animate-fade-in space-y-6">
         <h2 className="text-2xl md:text-3xl font-black tracking-tight text-slate-800">Alertas Activas</h2>
         <div className="grid grid-cols-1 gap-5">
@@ -33,17 +33,23 @@ const DashboardView = ({ alerts, handleUpdateWorkflow, setSelectedCompanyId, set
                     </div>
                     <div className="flex items-center w-full md:w-auto gap-3">
                         {a.type === 'BREAKDOWN' ? (
-                            <div className="flex flex-col sm:flex-row bg-slate-100/50 p-1.5 rounded-xl w-full gap-2 border border-slate-200/50">
-                                {['PENDIENTE', 'REVISION', 'REPARADO'].map(s => (
-                                    <button 
-                                        key={s} 
-                                        onClick={() => handleUpdateWorkflow(a.companyId, a.id, s)} 
-                                        className={`px-4 py-2.5 rounded-[0.85rem] text-[10px] font-black uppercase w-full transition-all ${a.workflowStatus === s ? 'bg-red-500 text-white shadow-lg shadow-red-500/30 scale-[1.02]' : 'bg-transparent text-slate-500 hover:bg-slate-200'}`}
-                                    >
-                                        {s}
-                                    </button>
-                                ))}
-                            </div>
+                            role !== 'gerente' ? (
+                                <div className="flex flex-col sm:flex-row bg-slate-100/50 p-1.5 rounded-xl w-full gap-2 border border-slate-200/50">
+                                    {['PENDIENTE', 'REVISION', 'REPARADO'].map(s => (
+                                        <button 
+                                            key={s} 
+                                            onClick={() => handleUpdateWorkflow(a.companyId, a.id, s)} 
+                                            className={`px-4 py-2.5 rounded-[0.85rem] text-[10px] font-black uppercase w-full transition-all ${a.workflowStatus === s ? 'bg-red-500 text-white shadow-lg shadow-red-500/30 scale-[1.02]' : 'bg-transparent text-slate-500 hover:bg-slate-200'}`}
+                                        >
+                                            {s}
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="bg-red-50 border border-red-200 px-4 py-2.5 rounded-xl text-center w-full">
+                                    <span className="text-[10px] font-black text-red-600 uppercase tracking-widest">Estado: {a.workflowStatus}</span>
+                                </div>
+                            )
                         ) : (
                             <button 
                                 onClick={() => { setSelectedCompanyId(a.companyId); setActiveVehicleId(null); setActiveTab('companies'); }} 
@@ -89,7 +95,7 @@ const CompaniesView = ({ companies, role, setForm, setModalType, setSelectedComp
                         <div className="w-14 h-14 bg-slate-900 rounded-[1.25rem] flex items-center justify-center text-yellow-400 shadow-xl shadow-slate-900/20">
                             <Icon name="company" size={26}/>
                         </div>
-                        {/* AHORA EL TANQUE ES UN BOTÓN DIRECTO DESDE EL DIRECTORIO */}
+                        {/* EL TANQUE ES UN BOTÓN DIRECTO DESDE EL DIRECTORIO */}
                         <div 
                             onClick={(e) => { 
                                 e.stopPropagation(); 
@@ -142,7 +148,7 @@ const CompanyDetailView = ({
     handleDeleteVehicle, handleToggleStatus, downloadPDF, generateQR, toggleHistory 
 }) => {
     
-    // VISTA DE LISTADO DE FLOTA (Solo se activa si NO hay un vehículo seleccionado)
+    // VISTA DE LISTADO DE FLOTA
     if (!activeVehicleId) {
         return (
             <div className="max-w-6xl mx-auto animate-fade-in">
@@ -163,6 +169,13 @@ const CompanyDetailView = ({
                     </div>
                     
                     <div className="flex flex-wrap items-center gap-4 z-10 w-full md:w-auto">
+                        <div 
+                            onClick={() => setActiveVehicleId('TANK')} 
+                            className="cursor-pointer hover:scale-105 transition-transform bg-white/10 p-3 rounded-2xl border border-white/20 backdrop-blur-sm shadow-xl flex flex-col items-center"
+                        >
+                            <span className="text-[8px] font-black uppercase text-yellow-400 tracking-widest mb-1">Ver Tanque</span>
+                            <FuelTankCapsule capacity={activeCompany.tankCapacity} current={activeCompany.currentFuel} />
+                        </div>
                         {role === 'admin' && (
                             <button 
                                 onClick={() => { setForm(prev => ({...prev, nombre:'', marca:'', modelo:'', serie:'', patente:'', serviceInterval: 250, horometro: ''})); setModalType('vehicle'); }} 
@@ -247,30 +260,33 @@ const CompanyDetailView = ({
                     </div>
                 </div>
 
-                <div className={`grid gap-4 mb-10 ${isTank ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'}`}>
-                    <button onClick={() => setModalType('log')} className="btn-premium px-4 py-5 rounded-2xl text-xs font-black tracking-widest w-full">
-                        {isTank ? 'INGRESAR DIÉSEL' : 'CARGAR DATOS'}
-                    </button>
-                    {!isTank && (
-                        <button onClick={() => setModalType('service')} className="btn-accent px-4 py-5 rounded-2xl text-xs font-black tracking-widest w-full">
-                            SERVICE
+                {/* BLOQUEO PARA GERENTE: El gerente no ve botones de carga ni eventos */}
+                {role !== 'gerente' && (
+                    <div className={`grid gap-4 mb-10 ${isTank ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'}`}>
+                        <button onClick={() => setModalType('log')} className="btn-premium px-4 py-5 rounded-2xl text-xs font-black tracking-widest w-full">
+                            {isTank ? 'INGRESAR DIÉSEL' : 'CARGAR DATOS'}
                         </button>
-                    )}
-                    <button 
-                        onClick={() => handleToggleStatus(activeVehicle.id, activeVehicle.operativo)} 
-                        className={`px-4 py-5 rounded-2xl font-black text-xs tracking-widest uppercase transition-all w-full shadow-md ${activeVehicle.operativo ? 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-600 hover:text-white' : 'bg-emerald-500 text-white shadow-emerald-500/30'}`}
-                    >
-                        {activeVehicle.operativo ? 'EVENTO' : 'REVIVIR'}
-                    </button>
-                    {!isTank && (
+                        {!isTank && (
+                            <button onClick={() => setModalType('service')} className="btn-accent px-4 py-5 rounded-2xl text-xs font-black tracking-widest w-full">
+                                SERVICE
+                            </button>
+                        )}
                         <button 
-                            onClick={() => { setForm(prev => ({...prev, horas: activeVehicle.horometroTotal, fecha: new Date().toISOString().split('T')[0]})); setModalType('historical'); }} 
-                            className="bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 px-4 py-5 rounded-2xl text-xs font-black tracking-widest w-full transition-colors border border-slate-200/50"
+                            onClick={() => handleToggleStatus(activeVehicle.id, activeVehicle.operativo)} 
+                            className={`px-4 py-5 rounded-2xl font-black text-xs tracking-widest uppercase transition-all w-full shadow-md ${activeVehicle.operativo ? 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-600 hover:text-white' : 'bg-emerald-500 text-white shadow-emerald-500/30'}`}
                         >
-                            HISTORIAL
+                            {activeVehicle.operativo ? 'EVENTO' : 'REVIVIR'}
                         </button>
-                    )}
-                </div>
+                        {!isTank && (
+                            <button 
+                                onClick={() => { setForm(prev => ({...prev, horas: activeVehicle.horometroTotal, fecha: new Date().toISOString().split('T')[0]})); setModalType('historical'); }} 
+                                className="bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 px-4 py-5 rounded-2xl text-xs font-black tracking-widest w-full transition-colors border border-slate-200/50"
+                            >
+                                HISTORIAL
+                            </button>
+                        )}
+                    </div>
+                )}
 
                 <div className="flex flex-wrap gap-4 mb-10 bg-slate-50/50 p-5 rounded-[1.5rem] border border-slate-100">
                     {!isTank && (
@@ -390,10 +406,10 @@ const ConfigView = ({ bndSettings, setBndSettings, saveBndSettings, usersList, c
                                 <td className="font-medium text-slate-500 text-sm truncate max-w-[200px]">{u.email}</td>
                                 <td>
                                     <div className="flex flex-col gap-1.5 items-start">
-                                        <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md border ${u.role === 'admin' ? 'border-yellow-400 bg-yellow-50 text-yellow-700' : u.role === 'suspendido' ? 'border-red-500 bg-red-50 text-red-600' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                                        <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md border ${u.role === 'admin' ? 'border-yellow-400 bg-yellow-50 text-yellow-700' : u.role === 'gerente' ? 'border-blue-400 bg-blue-50 text-blue-700' : u.role === 'suspendido' ? 'border-red-500 bg-red-50 text-red-600' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
                                             {u.role}
                                         </span>
-                                        {u.role === 'operario' && (
+                                        {['operario', 'gerente'].includes(u.role) && (
                                             <span className="text-[10px] font-bold text-slate-400 truncate max-w-[200px]">
                                                 {companies.find(c => c.id === u.companyId)?.nombre || 'Sin Empresa Asignada'}
                                             </span>
