@@ -249,10 +249,11 @@ const CompanyDetailView = ({
     handleToggleStatus, 
     downloadPDF, 
     generateQR, 
-    toggleHistory 
+    toggleHistory,
+    setActiveEvent // NUEVO PROP PARA SELECCIONAR EVENTO
 }) => {
     
-    // Si no hay un vehículo seleccionado, mostramos la lista de la flota
+    // VISTA DE LISTADO DE FLOTA
     if (!activeVehicleId) {
         return (
             <div className="max-w-6xl mx-auto animate-fade-in">
@@ -537,6 +538,9 @@ const CompanyDetailView = ({
                     <h3 className="font-black text-2xl tracking-tight text-slate-800">
                         Auditoría Interna
                     </h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-[-15px]">
+                        Haz clic en un registro para ver el detalle y los adjuntos.
+                    </p>
                     <div className="overflow-x-auto rounded-2xl border border-slate-200/60 bg-white shadow-sm">
                         <table className="w-full history-table min-w-[500px]">
                             <thead className="bg-slate-50">
@@ -549,12 +553,27 @@ const CompanyDetailView = ({
                             </thead>
                             <tbody>
                                 {([...(activeVehicle.eventos || [])].reverse().map((ev, idx) => ( 
-                                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                    <tr 
+                                        key={idx} 
+                                        className="hover:bg-slate-100/80 transition-colors cursor-pointer group"
+                                        onClick={() => {
+                                            setActiveEvent(ev);
+                                            setForm(prev => ({
+                                                ...prev, 
+                                                nota: ev.nota || '', 
+                                                motivo: ev.motivo || '', 
+                                                horas: ev.horas || '', 
+                                                litros: ev.litros || '', 
+                                                costo: ev.costo || ''
+                                            }));
+                                            setModalType('event_detail');
+                                        }}
+                                    >
                                         <td className="font-bold text-slate-400 text-xs">
                                             {ev.fecha.slice(0,5)}
                                         </td>
                                         <td>
-                                            <span className="font-black text-[9px] uppercase tracking-widest border border-slate-200 px-2.5 py-1.5 rounded-lg bg-white text-slate-600 shadow-sm">
+                                            <span className="font-black text-[9px] uppercase tracking-widest border border-slate-200 px-2.5 py-1.5 rounded-lg bg-white text-slate-600 shadow-sm group-hover:border-slate-400 transition-colors">
                                                 {ev.tipo.slice(0,8)}
                                             </span>
                                         </td>
@@ -566,15 +585,24 @@ const CompanyDetailView = ({
                                             {isTank ? `${ev.litros} L` : ev.horas}
                                         </td>
                                         <td className="text-slate-500 font-medium text-xs leading-relaxed max-w-[250px] truncate">
-                                            {ev.costo && (
-                                                <span className="font-black text-emerald-600 mr-2 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100">
-                                                    ${parseFloat(ev.costo).toLocaleString()}
+                                            <div className="flex flex-col">
+                                                <span className="truncate text-slate-700">
+                                                    {ev.costo && (
+                                                        <span className="font-black text-emerald-600 mr-2 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100">
+                                                            ${parseFloat(ev.costo).toLocaleString()}
+                                                        </span>
+                                                    )}
+                                                    {!isTank && ev.litros ? (
+                                                        <span className="font-bold text-red-500 mr-2">-{ev.litros}L</span>
+                                                    ) : ''}
+                                                    {ev.nota || ev.motivo || '-'}
                                                 </span>
-                                            )}
-                                            {!isTank && ev.litros ? (
-                                                <span className="font-bold text-red-500 mr-2">-{ev.litros}L</span>
-                                            ) : ''}
-                                            {ev.nota || ev.motivo || '-'}
+                                                {ev.usuario && (
+                                                    <span className="text-[9px] font-bold text-slate-400 uppercase mt-1 tracking-widest">
+                                                        Por: {ev.usuario}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr> 
                                 )))}
