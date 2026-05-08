@@ -93,6 +93,8 @@ const App = () => {
         criticalFuelPerc: 25, 
         insumos: [], 
         insumoManual: '', 
+        costo: '', 
+        adjunto: null, 
         fecha: new Date().toISOString().split('T')[0]
     });
 
@@ -327,6 +329,7 @@ const App = () => {
     }, [companies, selectedCompanyId]);
     
     const activeVehicle = useMemo(() => {
+        // Logica para el TANQUE virtual
         if (activeVehicleId === 'TANK' && activeCompany) {
             return {
                 id: 'TANK', 
@@ -365,6 +368,7 @@ const App = () => {
                 });
             }
             
+            // Chequeo de rotura del tanque
             if (emp.tanqueOperativo === false) {
                 list.push({ 
                     type: 'BREAKDOWN', 
@@ -467,12 +471,14 @@ const App = () => {
         let allVehicles = [];
         let eventCounts = { REGISTRO: 0, SERVICE: 0, REPARACION: 0, BAJA: 0 };
         let breaksPerCompany = {};
+        let totalCostPerCompany = {}; 
 
-        // El gerente solo calcula la métrica de su empresa, el admin todas.
         const relevantCompanies = role === 'admin' ? companies : companies.filter(c => c.id === userCompanyId);
 
         relevantCompanies.forEach(comp => {
             breaksPerCompany[comp.nombre] = 0;
+            totalCostPerCompany[comp.nombre] = 0;
+
             (comp.vehiculos || []).forEach(v => {
                 let totalLitros = 0; 
                 let hsTrabajadas = 0;
@@ -502,7 +508,10 @@ const App = () => {
 
                 (v.eventos || []).forEach(e => {
                     if (e.tipo === 'REGISTRO') eventCounts.REGISTRO++;
-                    if (e.tipo === 'SERVICE') eventCounts.SERVICE++;
+                    if (e.tipo === 'SERVICE') {
+                        eventCounts.SERVICE++;
+                        totalCostPerCompany[comp.nombre] += parseFloat(e.costo || 0);
+                    }
                     if (e.tipo === 'REPARACION' || e.tipo === 'BAJA') { 
                         eventCounts.REPARACION++; 
                         breaksPerCompany[comp.nombre]++; 
@@ -515,6 +524,7 @@ const App = () => {
             topConsumidores: [...allVehicles].sort((a,b) => b.lPh - a.lPh).slice(0, 5), 
             eventCounts, 
             breaksPerCompany, 
+            totalCostPerCompany,
             topUso: [...allVehicles].sort((a,b) => b.avgDiario - a.avgDiario).slice(0, 5) 
         };
     }, [companies, role, userCompanyId]);
@@ -534,6 +544,16 @@ const App = () => {
             label: 'Nº Roturas Históricas', 
             data: Object.values(intelligenceData.breaksPerCompany), 
             backgroundColor: '#f59e0b', 
+            borderRadius: 8 
+        }]
+    };
+
+    const chartFinancieroData = {
+        labels: Object.keys(intelligenceData.totalCostPerCompany),
+        datasets: [{ 
+            label: 'Inversión Mantenimiento ($)', 
+            data: Object.values(intelligenceData.totalCostPerCompany), 
+            backgroundColor: '#10b981', 
             borderRadius: 8 
         }]
     };
@@ -599,7 +619,7 @@ const App = () => {
             vehiculos: [] 
         }); 
         setModalType(null); 
-        setForm({...form, nombre: '', cuit: '', responsable: ''}); 
+        setForm(prev => ({...prev, nombre: '', cuit: '', responsable: ''})); 
     };
     
     const handleAddVehicle = async () => { 
@@ -674,7 +694,7 @@ const App = () => {
             });
         }
         setModalType(null); 
-        setForm({...form, horas: '', litros: '', nota: ''});
+        setForm(prev => ({...prev, horas: '', litros: '', nota: ''}));
     };
 
     const handleToggleStatus = async (vId, active) => { 
@@ -737,7 +757,7 @@ const App = () => {
             }); 
         }
         setModalType(null); 
-        setForm({...form, motivo: ''}); 
+        setForm(prev => ({...prev, motivo: ''})); 
     };
 
     const handleUpdateWorkflow = async (cId, vId, ns) => { 
@@ -812,6 +832,8 @@ const App = () => {
     };
 
     const handleServiceReset = async () => { 
+        const adjuntoFlag = form.adjunto ? true : false;
+        
         await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { 
             vehiculos: activeCompany.vehiculos.map(x => x.id === activeVehicleId ? { 
                 ...x, 
@@ -822,12 +844,14 @@ const App = () => {
                     fecha: new Date().toLocaleDateString(), 
                     horas: x.horometroTotal, 
                     insumos: form.insumos, 
-                    nota: form.nota 
+                    nota: form.nota,
+                    costo: parseFloat(form.costo) || 0,
+                    tieneAdjunto: adjuntoFlag
                 }] 
             } : x) 
         }); 
         setModalType(null); 
-        setForm({...form, insumos: [], nota: ''}); 
+        setForm(prev => ({...prev, insumos: [], nota: '', costo: '', adjunto: null})); 
     };
 
     const refillTank = async () => { 
@@ -858,13 +882,13 @@ const App = () => {
             e.fecha, 
             e.tipo, 
             e.horas ? `${e.horas} HS` : '-', 
-            e.litros || '-', 
+            e.costo ? `$${e.costo}` : '-', 
             e.nota || e.motivo || '-'
         ]);
         
         doc.autoTable({ 
             startY: 70, 
-            head: [['FECHA', 'TIPO', 'LECTURA', 'LITROS', 'DETALLE']], 
+            head: [['FECHA', 'TIPO', 'LECTURA', 'COSTO', 'DETALLE']], 
             body, 
             headStyles: { fillColor: [15, 23, 42] } 
         });
@@ -897,13 +921,15 @@ const App = () => {
                         setScannerActive(false); 
                         scannerRef.current.stop(); 
                         
-                        // Si el rol es operario o admin, abrir modal de carga. Gerente no carga.
+                        // Si el rol no es gerente, abre el modal de carga automáticamente
                         if (role !== 'gerente') {
                             setTimeout(() => setModalType('log'), 500);
                         }
                     }
                 }, 
-                (err) => {}
+                (err) => {
+                    // console.error silencioso
+                }
             ).catch(e => console.error("Error cámara:", e));
         }, 500);
     };
@@ -1097,7 +1123,7 @@ const App = () => {
                             setActiveTab={setActiveTab} 
                         />
                     )}
-                    {activeTab === 'companies' && !activeCompany && role === 'admin' && CompaniesView && (
+                    {activeTab === 'companies' && !activeCompany && ['admin', 'gerente'].includes(role) && CompaniesView && (
                         <CompaniesView 
                             companies={companies} 
                             role={role} 
@@ -1156,7 +1182,7 @@ const App = () => {
                         <MetricsView 
                             intelligenceData={intelligenceData} 
                             chartGastosData={chartGastosData} 
-                            chartSeveridadData={chartSeveridadData} 
+                            chartFinancieroData={chartFinancieroData} 
                             expandedInfo={expandedInfo} 
                             toggleInfo={toggleInfo} 
                         />
