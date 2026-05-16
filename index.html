@@ -2,57 +2,194 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>BND</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BND - Control de Activos</title>
+    <meta name="theme-color" content="#f8fafc">
     
-    <link rel="manifest" href="./manifest.json">
-    <meta name="theme-color" content="#0f172a">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="icon" type="image/png" href="./icon.png">
     <link rel="apple-touch-icon" href="./icon.png">
-    
-    <link rel="icon" href="data:,">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700;800&family=Outfit:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="./style.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        bnd: {
+                            dark: '#0f172a',
+                            accent: '#2563eb', // Azul moderno eléctrico
+                            light: '#f8fafc'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
 
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* ==========================================
+           NUEVO ESTILO VISUAL: BENTO UI / NEO-MINIMAL
+           ========================================== */
+        
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #f1f5f9; /* Fondo gris muy claro y elegante */
+            -webkit-tap-highlight-color: transparent;
+            color: #0f172a;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: -0.02em;
+        }
+
+        /* 1. LAS TARJETAS (Bento Box Style) */
+        .glass-card {
+            background: #ffffff;
+            border-radius: 28px; /* Curvas más pronunciadas */
+            border: 1px solid rgba(0, 0, 0, 0.04);
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0,0,0,0.02);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        .glass-card:hover {
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 2. BOTONES MODERNOS TIPO PÍLDORA */
+        .btn-premium {
+            background: #0f172a; /* Slate 900 */
+            color: #ffffff;
+            border-radius: 100px; /* Pill shape */
+            border: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-premium:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.4);
+            background: #1e293b;
+        }
+
+        .btn-premium:active {
+            transform: translateY(0);
+        }
+
+        .btn-accent {
+            background: #2563eb; /* Azul eléctrico / Moderno */
+            color: #ffffff;
+            border-radius: 100px;
+            border: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-accent:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.4);
+            background: #1d4ed8;
+        }
+
+        .btn-accent:active {
+            transform: translateY(0);
+        }
+
+        /* 3. INPUTS ULTRA LIMPIOS */
+        .input-premium {
+            background: #f8fafc;
+            border: 2px solid transparent;
+            border-radius: 20px;
+            color: #0f172a;
+            transition: all 0.2s ease;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        .input-premium:focus {
+            outline: none;
+            background: #ffffff;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+        }
+
+        .input-premium::placeholder {
+            color: #94a3b8;
+            font-weight: 600;
+        }
+
+        /* TABLAS Y OTROS ELEMENTOS */
+        .history-table th {
+            text-transform: uppercase;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            color: #64748b;
+            padding: 16px;
+            text-align: left;
+            border-bottom: 2px solid #f1f5f9;
+        }
+
+        .history-table td {
+            padding: 16px;
+            border-bottom: 1px solid #f8fafc;
+            vertical-align: middle;
+        }
+
+        /* Animaciones base */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        /* Ocultar scrollbar pero mantener scroll */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
 </head>
 <body>
     <div id="root"></div>
 
-    <script type="module" src="./firebaseConfig.js"></script>
-    <script type="text/babel" src="./Icons.jsx"></script>
-    <script type="text/babel" src="./Components.jsx"></script>
+    <script type="module" src="./firebase-config.js"></script>
+    <script type="text/babel" src="./AppComponents.jsx"></script>
     <script type="text/babel" src="./AppViews.jsx"></script>
     <script type="text/babel" src="./AppModals.jsx"></script>
     <script type="text/babel" src="./App.jsx"></script>
-
+    
     <script type="text/babel">
-        const initApp = () => {
-            // Revisamos explícitamente las variables globales correctas para evitar pantallas en blanco
-            if (window.App && window.Icon && window.ModalComp && window.AppViews && window.AppModals) {
-                const root = ReactDOM.createRoot(document.getElementById('root'));
-                root.render(<window.App />);
-            } else {
-                setTimeout(initApp, 50);
-            }
-        };
-        initApp();
-
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW Falló: ', err));
-            });
-        }
+        window.addEventListener('load', () => {
+            lucide.createIcons();
+            setTimeout(() => {
+                if (window.App) {
+                    const root = ReactDOM.createRoot(document.getElementById('root'));
+                    root.render(<window.App />);
+                }
+            }, 1000); // Pequeño delay para asegurar carga de módulos
+        });
     </script>
 </body>
 </html>
