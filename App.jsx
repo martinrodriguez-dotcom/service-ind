@@ -76,7 +76,8 @@ const App = () => {
         address: "-", 
         phone: "-", 
         email: "-", 
-        web: "-"
+        web: "-",
+        webhookUrl: "" 
     });
 
     const [form, setForm] = useState({ 
@@ -199,7 +200,7 @@ const App = () => {
         }
     }, [role]);
 
-    // Redirección automática para roles vinculados a empresa (operarios y gerentes)
+    // Redirección automática para roles vinculados a empresa
     useEffect(() => {
         if (['operario', 'gerente'].includes(role) && userCompanyId && activeTab === 'companies' && !selectedCompanyId) {
             setSelectedCompanyId(userCompanyId);
@@ -619,8 +620,29 @@ const App = () => {
         document.body.removeChild(link);
     };
 
+    // --- NUEVA LÓGICA: SISTEMA DE ALERTA EXTERNA PROACTIVA (WhatsApp / Email) ---
+    const triggerExternalAlert = async (titulo, mensaje) => {
+        console.log(`[ALERTA AUTOMÁTICA BND] ${titulo}: ${mensaje}`);
+        if (bndSettings.webhookUrl && bndSettings.webhookUrl.trim() !== "") {
+            try {
+                await fetch(bndSettings.webhookUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        app: "BND Control de Activos",
+                        fecha: new Date().toLocaleString(),
+                        alerta: titulo,
+                        detalle: mensaje,
+                        usuarioAccion: userName
+                    })
+                });
+            } catch (err) {
+                console.error("Error al disparar el webhook de notificaciones:", err);
+            }
+        }
+    };
+
     // --- SANITIZADOR PARA FIREBASE ---
-    // Remueve undefined y convierte objetos complejos a simples
     const sanitizeForFirebase = (obj) => {
         return JSON.parse(JSON.stringify(obj));
     };
@@ -717,7 +739,7 @@ const App = () => {
         setModalType(null); 
     };
 
-    // --- OPERACIONES DE CAMPO CON INTEGRACIÓN DE TANQUE ---
+    // --- OPERACIONES DE CAMPO CON INTEGRACIÓN DE TANQUE Y ALERTAS ---
     const handleDailyLog = async () => {
         const l = parseFloat(form.litros) || 0;
         
@@ -767,6 +789,11 @@ const App = () => {
                 currentFuel: newFuel,
                 eventosTanque: fb.arrayUnion(tankEvent)
             });
+
+            const criticalLiters = (activeCompany.tankCapacity || 1000) * ((activeCompany.criticalFuelPerc || 25) / 100);
+            if (newFuel <= criticalLiters) {
+                triggerExternalAlert("⛽ COMBUSTIBLE CRÍTICO", `El Tanque de la empresa ${activeCompany.nombre} alcanzó su nivel crítico. Stock actual: ${newFuel.toFixed(0)}L (Límite: ${criticalLiters.toFixed(0)}L).`);
+            }
         }
         setModalType(null); 
         setForm(prev => ({...prev, horas: '', litros: '', nota: ''}));
@@ -817,6 +844,7 @@ const App = () => {
                 tanqueOperativo: false, 
                 eventosTanque: fb.arrayUnion(bajaEvent) 
             });
+            triggerExternalAlert("🚨 TANQUE INOPERATIVO", `El Tanque Principal de la empresa ${activeCompany.nombre} fue dado de BAJA por rotura. Motivo: ${form.motivo}`);
         } else {
             await fb.updateDoc(fb.doc(db, "artifacts", APP_ID, "public", "data", "companies", activeCompany.id), { 
                 vehiculos: activeCompany.vehiculos.map(v => v.id === activeVehicleId ? { 
@@ -826,6 +854,7 @@ const App = () => {
                     eventos: [...(v.eventos || []), bajaEvent] 
                 } : v) 
             }); 
+            triggerExternalAlert("🚨 MAQUINARIA ROTA", `El equipo ${activeVehicle.nombre} (#${activeVehicle.numeroInterno}) de ${activeCompany.nombre} reportó una falla y está INOPERATIVO. Motivo: ${form.motivo}`);
         }
         setModalType(null); 
         setForm(prev => ({...prev, motivo: ''})); 
@@ -904,7 +933,6 @@ const App = () => {
         setModalType(null); 
     };
 
-    // Helper para convertir archivo a Base64
     const getBase64 = (file) => new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
