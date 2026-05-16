@@ -534,82 +534,85 @@ const CompanyDetailView = ({
                     )}
                 </div>
 
-                <div className="space-y-6">
-                    <h3 className="font-black text-2xl tracking-tight text-slate-800">
-                        Auditoría Interna
-                    </h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-[-15px]">
-                        Haz clic en un registro para ver el detalle y los adjuntos.
-                    </p>
-                    <div className="overflow-x-auto rounded-2xl border border-slate-200/60 bg-white shadow-sm">
-                        <table className="w-full history-table min-w-[500px]">
-                            <thead className="bg-slate-50">
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Tipo de Evento</th>
-                                    <th>{isTank ? 'Litros' : 'Lectura'}</th>
-                                    <th>Costo / Nota del Operario</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {([...(activeVehicle.eventos || [])].reverse().map((ev, idx) => ( 
-                                    <tr 
-                                        key={idx} 
-                                        className="hover:bg-slate-100/80 transition-colors cursor-pointer group"
-                                        onClick={() => {
-                                            setActiveEvent(ev);
-                                            setForm(prev => ({
-                                                ...prev, 
-                                                nota: ev.nota || '', 
-                                                motivo: ev.motivo || '', 
-                                                horas: ev.horas || '', 
-                                                litros: ev.litros || '', 
-                                                costo: ev.costo || ''
-                                            }));
-                                            setModalType('event_detail');
-                                        }}
-                                    >
-                                        <td className="font-bold text-slate-400 text-xs">
-                                            {ev.fecha.slice(0,5)}
-                                        </td>
-                                        <td>
-                                            <span className="font-black text-[9px] uppercase tracking-widest border border-slate-200 px-2.5 py-1.5 rounded-lg bg-white text-slate-600 shadow-sm group-hover:border-slate-400 transition-colors">
-                                                {ev.tipo.slice(0,8)}
-                                            </span>
-                                        </td>
-                                        <td className={`mono font-black text-sm ${
-                                            isTank 
-                                                ? (ev.tipo === 'DESCARGA' ? 'text-red-500' : 'text-emerald-500') 
-                                                : 'text-slate-800'
-                                        }`}>
-                                            {isTank ? `${ev.litros} L` : ev.horas}
-                                        </td>
-                                        <td className="text-slate-500 font-medium text-xs leading-relaxed max-w-[250px] truncate">
-                                            <div className="flex flex-col">
-                                                <span className="truncate text-slate-700">
-                                                    {ev.costo && (
-                                                        <span className="font-black text-emerald-600 mr-2 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100">
-                                                            ${parseFloat(ev.costo).toLocaleString()}
+                {/* --- SECCIÓN OCULTA PARA OPERARIOS --- */}
+                {role !== 'operario' && (
+                    <div className="space-y-6">
+                        <h3 className="font-black text-2xl tracking-tight text-slate-800">
+                            Auditoría Interna
+                        </h3>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-[-15px]">
+                            Haz clic en un registro para ver el detalle y los adjuntos.
+                        </p>
+                        <div className="overflow-x-auto rounded-2xl border border-slate-200/60 bg-white shadow-sm">
+                            <table className="w-full history-table min-w-[500px]">
+                                <thead className="bg-slate-50">
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Tipo de Evento</th>
+                                        <th>{isTank ? 'Litros' : 'Lectura'}</th>
+                                        <th>Costo / Nota del Operario</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {([...(activeVehicle.eventos || [])].reverse().map((ev, idx) => ( 
+                                        <tr 
+                                            key={idx} 
+                                            className="hover:bg-slate-100/80 transition-colors cursor-pointer group"
+                                            onClick={() => {
+                                                setActiveEvent(ev);
+                                                setForm(prev => ({
+                                                    ...prev, 
+                                                    nota: ev.nota || '', 
+                                                    motivo: ev.motivo || '', 
+                                                    horas: ev.horas || '', 
+                                                    litros: ev.litros || '', 
+                                                    costo: ev.costo || ''
+                                                }));
+                                                setModalType('event_detail');
+                                            }}
+                                        >
+                                            <td className="font-bold text-slate-400 text-xs">
+                                                {ev.fecha.slice(0,5)}
+                                            </td>
+                                            <td>
+                                                <span className="font-black text-[9px] uppercase tracking-widest border border-slate-200 px-2.5 py-1.5 rounded-lg bg-white text-slate-600 shadow-sm group-hover:border-slate-400 transition-colors">
+                                                    {ev.tipo.slice(0,8)}
+                                                </span>
+                                            </td>
+                                            <td className={`mono font-black text-sm ${
+                                                isTank 
+                                                    ? (ev.tipo === 'DESCARGA' ? 'text-red-500' : 'text-emerald-500') 
+                                                    : 'text-slate-800'
+                                            }`}>
+                                                {isTank ? `${ev.litros} L` : ev.horas}
+                                            </td>
+                                            <td className="text-slate-500 font-medium text-xs leading-relaxed max-w-[250px] truncate">
+                                                <div className="flex flex-col">
+                                                    <span className="truncate text-slate-700">
+                                                        {ev.costo && (
+                                                            <span className="font-black text-emerald-600 mr-2 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100">
+                                                                ${parseFloat(ev.costo).toLocaleString()}
+                                                            </span>
+                                                        )}
+                                                        {!isTank && ev.litros ? (
+                                                            <span className="font-bold text-red-500 mr-2">-{ev.litros}L</span>
+                                                        ) : ''}
+                                                        {ev.nota || ev.motivo || '-'}
+                                                    </span>
+                                                    {ev.usuario && (
+                                                        <span className="text-[9px] font-bold text-slate-400 uppercase mt-1 tracking-widest">
+                                                            Por: {ev.usuario}
                                                         </span>
                                                     )}
-                                                    {!isTank && ev.litros ? (
-                                                        <span className="font-bold text-red-500 mr-2">-{ev.litros}L</span>
-                                                    ) : ''}
-                                                    {ev.nota || ev.motivo || '-'}
-                                                </span>
-                                                {ev.usuario && (
-                                                    <span className="text-[9px] font-bold text-slate-400 uppercase mt-1 tracking-widest">
-                                                        Por: {ev.usuario}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr> 
-                                )))}
-                            </tbody>
-                        </table>
+                                                </div>
+                                            </td>
+                                        </tr> 
+                                    )))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );
@@ -665,6 +668,18 @@ const ConfigView = ({
                             value={bndSettings.phone} 
                             onChange={e => setBndSettings({...bndSettings, phone: e.target.value})} 
                         />
+                    </div>
+                    
+                    {/* --- NUEVO: INPUT PARA WEBHOOK DE ALERTAS AUTOMÁTICAS --- */}
+                    <div className="space-y-2 md:col-span-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-2">URL Webhook (Alertas Automáticas)</label>
+                        <input 
+                            className="input-premium px-5 py-4 w-full text-sm font-medium text-slate-600 border border-slate-200 focus:border-yellow-400" 
+                            placeholder="https://hook.us1.make.com/..."
+                            value={bndSettings.webhookUrl || ''} 
+                            onChange={e => setBndSettings({...bndSettings, webhookUrl: e.target.value})} 
+                        />
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-2 mt-1">Conecta con Zapier, Make o APIs de WhatsApp/Email para recibir alertas en tiempo real.</p>
                     </div>
                 </div>
                 <button 
@@ -996,7 +1011,7 @@ const MetricsView = ({
                             plugins: { 
                                 legend: { 
                                     position: 'bottom', 
-                                    labels: { font: { family: 'Plus Jakarta Sans', weight: 'bold' } } 
+                                    labels: { font: { family: 'Inter', weight: 'bold' } } 
                                 },
                                 tooltip: {
                                     callbacks: {
@@ -1032,7 +1047,7 @@ const MetricsView = ({
                 </div>
             </div>
 
-            {/* REPORTE 3: INVERSIÓN FINANCIERA (NUEVO) */}
+            {/* REPORTE 3: INVERSIÓN FINANCIERA */}
             <div className="glass-card p-8 flex flex-col h-full border-t-[8px] border-t-emerald-500 shadow-lg shadow-emerald-500/5">
                 <div className="flex justify-between items-start mb-6">
                     <h3 className="text-2xl font-black tracking-tight text-slate-800">Inversión Mantenimiento</h3>
@@ -1058,7 +1073,7 @@ const MetricsView = ({
                             plugins: { legend: { display: false } },
                             scales: { 
                                 y: { beginAtZero: true, ticks: { font: { family: 'JetBrains Mono' } } }, 
-                                x: { ticks: { font: { family: 'Plus Jakarta Sans', weight: 'bold' } } } 
+                                x: { ticks: { font: { family: 'Inter', weight: 'bold' } } } 
                             } 
                         }} 
                     />
