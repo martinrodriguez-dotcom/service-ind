@@ -1,3 +1,4 @@
+const { React } = window;
 const { useState, useEffect, useMemo, useRef } = React;
 
 const App = () => {
