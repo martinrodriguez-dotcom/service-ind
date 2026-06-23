@@ -1,3 +1,4 @@
+const { React } = window; // <-- LA LÍNEA MÁGICA SALVADORA
 const { useState, useEffect, useRef } = React;
 const { Icon, FuelTankCapsule } = window;
 
