@@ -1,3 +1,6 @@
+// 1. ESTA ES LA LÍNEA MÁGICA QUE FALTABA
+const { React } = window;
+
 const Icon = ({ name, size = 18, className = "" }) => {
     const icons = {
         dashboard: <path d="M3 3h7v7H3V3zm11 0h7v7h-7V3zm0 11h7v7h-7v-7zM3 11h7v10H3V11z" strokeWidth="2"/>,
@@ -38,5 +41,4 @@ const Icon = ({ name, size = 18, className = "" }) => {
     );
 };
 
-// Exponemos el componente al entorno global
 window.Icon = Icon;
